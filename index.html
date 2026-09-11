@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>VR Home</title>
+<title>VR Cube Runner</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body {
@@ -46,6 +46,54 @@
   }
   #score { color: #44ffaa; }
   #combo { color: #ffdd00; }
+
+  /* Прогресс-бар загрузки рук */
+  #mp-bar {
+    position: fixed;
+    top: max(60px, calc(env(safe-area-inset-top) + 44px));
+    left: 50%; transform: translateX(-50%);
+    z-index: 100;
+    width: min(320px, 80vw);
+    background: rgba(0,0,0,0.6);
+    border-radius: 20px;
+    padding: 10px 14px;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.2);
+    transition: opacity 0.4s, transform 0.4s;
+  }
+  #mp-bar.hidden {
+    opacity: 0;
+    transform: translate(-50%, -20px);
+    pointer-events: none;
+  }
+  #mp-label {
+    color: #fff;
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 6px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  #mp-label .status-txt { color: #88aaff; }
+  #mp-label .pct { color: #44ffaa; font-variant-numeric: tabular-nums; }
+  #mp-track {
+    width: 100%;
+    height: 6px;
+    background: rgba(255,255,255,0.15);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  #mp-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #4488ff, #aa44ff, #ff44aa);
+    border-radius: 4px;
+    transition: width 0.2s;
+    box-shadow: 0 0 8px rgba(170,68,255,0.7);
+  }
+
   #start-btn {
     position: fixed;
     top: 50%; left: 50%;
@@ -64,6 +112,7 @@
   }
   #start-btn:active { transform: translate(-50%, -50%) scale(0.95); }
   #start-btn.hidden { display: none; }
+
   #status {
     position: fixed;
     bottom: max(20px, env(safe-area-inset-bottom));
@@ -75,16 +124,10 @@
     -webkit-backdrop-filter: blur(10px);
     z-index: 100;
     max-width: 90vw; text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
-  #loading {
-    position: fixed; inset: 0;
-    background: #05060f;
-    display: flex; align-items: center; justify-content: center;
-    color: #fff; font-size: 18px; font-weight: 600;
-    z-index: 300;
-    transition: opacity 0.5s;
-  }
-  #loading.hidden { opacity: 0; pointer-events: none; }
 </style>
 </head>
 <body>
@@ -97,9 +140,16 @@
   <div class="pill">Комбо: <span id="combo">x1</span></div>
 </div>
 
+<div id="mp-bar" class="hidden">
+  <div id="mp-label">
+    <span class="status-txt" id="mp-status">Загрузка рук...</span>
+    <span class="pct" id="mp-pct">0%</span>
+  </div>
+  <div id="mp-track"><div id="mp-fill"></div></div>
+</div>
+
 <div id="status">Нажми «Старт» чтобы войти</div>
-<div id="loading">Загрузка VR...</div>
-<button id="start-btn">▶ ВОЙТИ</button>
+<button id="start-btn">▶ ВОЙТИ В VR</button>
 
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.js" crossorigin="anonymous"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -115,7 +165,10 @@
   var statusEl   = document.getElementById('status');
   var scoreEl    = document.getElementById('score');
   var comboEl    = document.getElementById('combo');
-  var loadingEl  = document.getElementById('loading');
+  var mpBar      = document.getElementById('mp-bar');
+  var mpFill     = document.getElementById('mp-fill');
+  var mpPct      = document.getElementById('mp-pct');
+  var mpStatus   = document.getElementById('mp-status');
 
   if (typeof THREE === 'undefined') {
     statusEl.textContent = '❌ Three.js не загрузился';
@@ -125,160 +178,136 @@
   // ================== THREE.JS ==================
   var scene = new THREE.Scene();
   var camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-  camera.position.set(0, 1.6, 0);  // высота глаз ~1.6м
+  camera.position.set(0, 1.6, 0);
+  camera.rotation.order = 'YXZ';
 
   var renderer = new THREE.WebGLRenderer({
     canvas: canvas3d,
     antialias: true,
-    powerPreference: 'high-performance',
-    alpha: false
+    powerPreference: 'high-performance'
   });
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.setClearColor(0x1a1525, 1);
 
   // ================== ПАНОРАМА-ФОН ==================
-  // Сфера 500м радиуса с текстурой 360-панорамы
   var panoGeo = new THREE.SphereGeometry(500, 60, 40);
-  panoGeo.scale(-1, 1, 1);  // выворачиваем наизнанку — смотрим ИЗНУТРИ
-  var panoMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+  panoGeo.scale(-1, 1, 1);
+  var panoMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
   var pano = new THREE.Mesh(panoGeo, panoMat);
   scene.add(pano);
 
-  // Загружаем 360°-панораму (закат / тропики) с бесплатного CDN
-  // Если интернет медленный — пока просто градиент, потом заменится
-  var textureLoader = new THREE.TextureLoader();
-  textureLoader.crossOrigin = 'anonymous';
-
-  // Красивый градиентный фон на случай, если панорама не загрузится
-  var gradientCanvas = document.createElement('canvas');
-  gradientCanvas.width = 1024; gradientCanvas.height = 512;
-  var gctx = gradientCanvas.getContext('2d');
+  // Градиент "закат" (fallback)
+  var gradCanvas = document.createElement('canvas');
+  gradCanvas.width = 1024; gradCanvas.height = 512;
+  var gctx = gradCanvas.getContext('2d');
   var grad = gctx.createLinearGradient(0, 0, 0, 512);
-  grad.addColorStop(0.0, '#1a1a4e');   // верх — тёмно-синий
-  grad.addColorStop(0.4, '#6a3a8a');   // сиреневый
-  grad.addColorStop(0.6, '#ff6a5a');   // оранжевый закат
-  grad.addColorStop(0.8, '#ffae5a');   // жёлтый
-  grad.addColorStop(1.0, '#3a2050');   // низ — фиолетовый
+  grad.addColorStop(0.0, '#1a1a4e');
+  grad.addColorStop(0.4, '#6a3a8a');
+  grad.addColorStop(0.6, '#ff6a5a');
+  grad.addColorStop(0.8, '#ffae5a');
+  grad.addColorStop(1.0, '#3a2050');
   gctx.fillStyle = grad;
   gctx.fillRect(0, 0, 1024, 512);
-  // Звёзды сверху
-  for (var i = 0; i < 200; i++) {
-    gctx.fillStyle = 'rgba(255,255,255,' + (Math.random() * 0.6) + ')';
-    var sx = Math.random() * 1024;
-    var sy = Math.random() * 200;
-    gctx.fillRect(sx, sy, 2, 2);
+  for (var i = 0; i < 250; i++) {
+    gctx.fillStyle = 'rgba(255,255,255,' + (Math.random() * 0.7) + ')';
+    gctx.fillRect(Math.random() * 1024, Math.random() * 220, 2, 2);
   }
-  var gradientTexture = new THREE.CanvasTexture(gradientCanvas);
-  gradientTexture.mapping = THREE.EquirectangularReflectionMapping;
-  panoMat.map = gradientTexture;
-  panoMat.color.setHex(0xffffff);
+  // Солнце
+  var sunGrad = gctx.createRadialGradient(512, 380, 0, 512, 380, 150);
+  sunGrad.addColorStop(0, 'rgba(255,240,180,1)');
+  sunGrad.addColorStop(0.4, 'rgba(255,180,100,0.6)');
+  sunGrad.addColorStop(1, 'rgba(255,120,80,0)');
+  gctx.fillStyle = sunGrad;
+  gctx.fillRect(300, 250, 424, 260);
+  var gradientTex = new THREE.CanvasTexture(gradCanvas);
+  gradientTex.mapping = THREE.EquirectangularReflectionMapping;
+  panoMat.map = gradientTex;
   panoMat.needsUpdate = true;
 
-  // Пытаемся загрузить реальную панораму (тропический закат)
-  // Используем несколько источников — если один не сработает, попробуем другой
-  var panoUrls = [
-    'https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/textures/2294472375_24a3b8ef46_o.jpg',
-    'https://threejs.org/examples/textures/2294472375_24a3b8ef46_o.jpg'
-  ];
-  function tryLoadPano(idx) {
-    if (idx >= panoUrls.length) return;
-    textureLoader.load(panoUrls[idx], function(tex) {
+  // Пытаемся подгрузить реальную 360-панораму в фоне
+  var texLoader = new THREE.TextureLoader();
+  texLoader.crossOrigin = 'anonymous';
+  texLoader.load(
+    'https://threejs.org/examples/textures/2294472375_24a3b8ef46_o.jpg',
+    function(tex) {
       tex.mapping = THREE.EquirectangularReflectionMapping;
       panoMat.map = tex;
-      panoMat.color.setHex(0xffffff);
       panoMat.needsUpdate = true;
-      console.log('Панорама загружена:', panoUrls[idx]);
-    }, undefined, function() {
-      tryLoadPano(idx + 1);
-    });
-  }
-  tryLoadPano(0);
+    },
+    undefined,
+    function() { /* оставляем градиент */ }
+  );
 
   // ================== МЕНЮ-ПАНЕЛЬ ==================
-  // Висит в мире впереди, не двигается при повороте головы
   var menuGroup = new THREE.Group();
-  menuGroup.position.set(0, 1.5, -2.5);  // 2.5м впереди на высоте глаз
+  menuGroup.position.set(0, 1.5, -2.5);
   scene.add(menuGroup);
 
-  // Чёрный полупрозрачный фон меню
   var menuBgGeo = new THREE.PlaneGeometry(2.2, 1.4);
   var menuBgMat = new THREE.MeshBasicMaterial({
-    color: 0x0a0a14,
-    transparent: true,
-    opacity: 0.92,
-    side: THREE.DoubleSide
+    color: 0x0a0a14, transparent: true, opacity: 0.92, side: THREE.DoubleSide
   });
-  var menuBg = new THREE.Mesh(menuBgGeo, menuBgMat);
-  menuGroup.add(menuBg);
+  menuGroup.add(new THREE.Mesh(menuBgGeo, menuBgMat));
 
-  // Рамка меню
-  var borderGeo = new THREE.PlaneGeometry(2.24, 1.44);
   var borderMat = new THREE.MeshBasicMaterial({
-    color: 0x4488ff,
-    transparent: true,
-    opacity: 0.6,
-    side: THREE.DoubleSide
+    color: 0x4488ff, transparent: true, opacity: 0.6, side: THREE.DoubleSide
   });
-  var border = new THREE.Mesh(borderGeo, borderMat);
+  var border = new THREE.Mesh(new THREE.PlaneGeometry(2.24, 1.44), borderMat);
   border.position.z = -0.001;
   menuGroup.add(border);
 
-  // Заголовок "Welcome"
+  // Заголовок
   var titleCanvas = document.createElement('canvas');
   titleCanvas.width = 1024; titleCanvas.height = 256;
   var tctx = titleCanvas.getContext('2d');
   tctx.fillStyle = '#ffffff';
   tctx.font = 'bold 80px -apple-system, sans-serif';
-  tctx.textAlign = 'center';
-  tctx.textBaseline = 'middle';
-  tctx.fillText('WELCOME BACK', 512, 100);
+  tctx.textAlign = 'center'; tctx.textBaseline = 'middle';
+  tctx.fillText('WELCOME BACK', 512, 90);
   tctx.font = '48px -apple-system, sans-serif';
   tctx.fillStyle = '#88aaff';
   tctx.fillText('CUBE RUNNER VR', 512, 180);
-  var titleTex = new THREE.CanvasTexture(titleCanvas);
-  var titleMat = new THREE.MeshBasicMaterial({ map: titleTex, transparent: true });
-  var titleMesh = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 0.45), titleMat);
+  var titleMat = new THREE.MeshBasicMaterial({
+    map: new THREE.CanvasTexture(titleCanvas), transparent: true
+  });
+  var titleMesh = new THREE.Mesh(new THREE.PlaneGeometry(1.9, 0.48), titleMat);
   titleMesh.position.set(0, 0.42, 0.01);
   menuGroup.add(titleMesh);
 
-  // Три "плитки" как в меню Quest (рекомендованные приложения)
+  // Плитки
   var tileColors = [0xff3366, 0x33aaff, 0xaa44ff];
   var tileLabels = ['EXPLORE', 'PLAY', 'SOCIAL'];
   for (var t = 0; t < 3; t++) {
-    var tileGeo = new THREE.PlaneGeometry(0.6, 0.55);
     var tileMat = new THREE.MeshBasicMaterial({
-      color: tileColors[t],
-      transparent: true,
-      opacity: 0.85,
-      side: THREE.DoubleSide
+      color: tileColors[t], transparent: true, opacity: 0.85, side: THREE.DoubleSide
     });
-    var tile = new THREE.Mesh(tileGeo, tileMat);
-    tile.position.set(-0.65 + t * 0.65, -0.15, 0.01);
+    var tile = new THREE.Mesh(new THREE.PlaneGeometry(0.62, 0.55), tileMat);
+    tile.position.set(-0.66 + t * 0.66, -0.18, 0.01);
     menuGroup.add(tile);
 
-    // Подпись на плитке
-    var lblCanvas = document.createElement('canvas');
-    lblCanvas.width = 512; lblCanvas.height = 512;
-    var lctx = lblCanvas.getContext('2d');
+    var lblC = document.createElement('canvas');
+    lblC.width = 512; lblC.height = 512;
+    var lctx = lblC.getContext('2d');
     lctx.fillStyle = '#ffffff';
     lctx.font = 'bold 60px -apple-system, sans-serif';
-    lctx.textAlign = 'center';
-    lctx.textBaseline = 'middle';
+    lctx.textAlign = 'center'; lctx.textBaseline = 'middle';
     lctx.fillText(tileLabels[t], 256, 256);
-    var lblTex = new THREE.CanvasTexture(lblCanvas);
-    var lblMat = new THREE.MeshBasicMaterial({ map: lblTex, transparent: true });
-    var lblMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 0.55), lblMat);
-    lblMesh.position.set(-0.65 + t * 0.65, -0.15, 0.02);
+    var lblMat = new THREE.MeshBasicMaterial({
+      map: new THREE.CanvasTexture(lblC), transparent: true
+    });
+    var lblMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.62, 0.55), lblMat);
+    lblMesh.position.set(-0.66 + t * 0.66, -0.18, 0.02);
     menuGroup.add(lblMesh);
   }
 
-  // Верхняя и нижняя полоска-панель (как в Quest UI)
-  var topBarGeo = new THREE.PlaneGeometry(2.0, 0.05);
-  var topBarMat = new THREE.MeshBasicMaterial({ color: 0x4488ff, transparent: true, opacity: 0.7 });
-  var topBar = new THREE.Mesh(topBarGeo, topBarMat);
-  topBar.position.set(0, 0.65, 0.01);
-  menuGroup.add(topBar);
+  // ================== СВЕТ ==================
+  scene.add(new THREE.AmbientLight(0xffffff, 0.9));
+  var dl = new THREE.DirectionalLight(0xffffff, 1.0);
+  dl.position.set(2, 5, 3);
+  scene.add(dl);
+  var pl1 = new THREE.PointLight(0xff44aa, 1.0, 20); pl1.position.set(3, 2, -3); scene.add(pl1);
+  var pl2 = new THREE.PointLight(0x44aaff, 1.0, 20); pl2.position.set(-3, 2, -3); scene.add(pl2);
 
   // ================== КУБЫ ==================
   var CUBE_COLORS = [0xff3366, 0x33ff99, 0x33aaff, 0xffaa33, 0xaa44ff, 0xff44aa, 0x44ffaa, 0xff6633];
@@ -289,11 +318,8 @@
   for (var ci = 0; ci < CUBE_POOL; ci++) {
     var cColor = CUBE_COLORS[ci % CUBE_COLORS.length];
     var cMat = new THREE.MeshStandardMaterial({
-      color: cColor,
-      emissive: cColor,
-      emissiveIntensity: 0.5,
-      roughness: 0.3,
-      metalness: 0.2
+      color: cColor, emissive: cColor, emissiveIntensity: 0.5,
+      roughness: 0.3, metalness: 0.2
     });
     var cube = new THREE.Mesh(cubeGeo, cMat);
     cube.visible = false;
@@ -301,13 +327,6 @@
     scene.add(cube);
     cubes.push(cube);
   }
-
-  scene.add(new THREE.AmbientLight(0xffffff, 0.9));
-  var dl = new THREE.DirectionalLight(0xffffff, 1.0);
-  dl.position.set(2, 5, 3);
-  scene.add(dl);
-  var pl1 = new THREE.PointLight(0xff44aa, 1.0, 20); pl1.position.set(3, 2, -3); scene.add(pl1);
-  var pl2 = new THREE.PointLight(0x44aaff, 1.0, 20); pl2.position.set(-3, 2, -3); scene.add(pl2);
 
   // ================== ЧАСТИЦЫ ==================
   var PARTICLE_COUNT = 150;
@@ -343,72 +362,110 @@
   }
 
   // ================== ГИРОСКОП ==================
-  var gyroBaseYaw = null;
-  var gyroBasePitch = null;
+  var gyroBaseYaw = null, gyroBasePitch = null;
   var targetYaw = 0, targetPitch = 0, targetRoll = 0;
   var currentYaw = 0, currentPitch = 0, currentRoll = 0;
-  var GYRO_SENS = 1.0;
 
   function onOrientation(e) {
     if (e.alpha === null || e.beta === null) return;
-
     if (gyroBaseYaw === null) {
       gyroBaseYaw = e.alpha;
       gyroBasePitch = e.beta;
     }
-
     var dYaw = e.alpha - gyroBaseYaw;
     while (dYaw > 180) dYaw -= 360;
     while (dYaw < -180) dYaw += 360;
-
     var dPitch = e.beta - gyroBasePitch;
 
-    // ВАЖНО: alpha растёт против часовой (влево). Инвертируем, чтобы поворот телефона вправо
-    // поворачивал камеру вправо (как в VR).
-    targetYaw   = -dYaw * Math.PI / 180 * GYRO_SENS;
-    // beta растёт при наклоне телефона от себя — pitch камеры вниз
-    targetPitch = -dPitch * Math.PI / 180 * GYRO_SENS;
+    targetYaw   = -dYaw * Math.PI / 180;
+    targetPitch = -dPitch * Math.PI / 180;
     targetRoll  = (e.gamma || 0) * Math.PI / 180 * 0.5;
   }
 
   function enableGyro() {
-    // iOS 13+ требует разрешения
     if (typeof DeviceOrientationEvent !== 'undefined' &&
         typeof DeviceOrientationEvent.requestPermission === 'function') {
       DeviceOrientationEvent.requestPermission()
         .then(function(state) {
           if (state === 'granted') {
             window.addEventListener('deviceorientation', onOrientation);
-            statusEl.textContent = 'Гироскоп включён ✓';
-          } else {
-            statusEl.textContent = '⚠️ Гироскоп запрещён';
           }
         })
-        .catch(function(err) {
-          console.error('Gyro permission error', err);
-          statusEl.textContent = '⚠️ Ошибка гироскопа';
-        });
+        .catch(function() {});
     } else {
       window.addEventListener('deviceorientation', onOrientation);
-      statusEl.textContent = 'Гироскоп включён ✓';
     }
   }
 
-  // ================== MEDIAPIPE ==================
+  // ================== MEDIAPIPE (с прогресс-баром) ==================
   var handsReady = false;
   var handData = [];
   var handsInstance = null;
   var mpRunning = false;
+
   var videoEl = document.createElement('video');
   videoEl.setAttribute('playsinline', '');
   videoEl.muted = true;
   videoEl.style.display = 'none';
   document.body.appendChild(videoEl);
 
+  // Прогресс: отслеживаем загрузку WASM-файла MediaPipe через fetch
+  function trackModelDownload() {
+    var urls = [
+      { url: 'https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands_solution_packed_assets_loader.js', weight: 0.05 },
+      { url: 'https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands_solution_simd_wasm_bin.wasm', weight: 0.85 },
+      { url: 'https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.binarypb', weight: 0.10 }
+    ];
+    var totalLoaded = 0;
+    var totalSize = 0;
+    urls.forEach(function(item) {
+      fetch(item.url, { method: 'HEAD' })
+        .then(function(r) { return r.headers.get('content-length'); })
+        .then(function(len) {
+          totalSize += (parseInt(len) || 1000000) * item.weight;
+        })
+        .catch(function() { totalSize += 1000000 * item.weight; });
+    });
+
+    // Для каждого файла — читаем поток и обновляем прогресс
+    var loadedPerFile = urls.map(function() { return 0; });
+    var sizePerFile = urls.map(function() { return 1000000; }); // значение по умолчанию
+
+    function updateBar() {
+      var total = 0, loaded = 0;
+      for (var i = 0; i < urls.length; i++) {
+        total += sizePerFile[i];
+        loaded += Math.min(loadedPerFile[i], sizePerFile[i]);
+      }
+      var pct = Math.min(99, Math.round((loaded / total) * 100));
+      mpFill.style.width = pct + '%';
+      mpPct.textContent = pct + '%';
+    }
+
+    urls.forEach(function(item, idx) {
+      fetch(item.url)
+        .then(function(response) {
+          var size = parseInt(response.headers.get('content-length')) || 1000000;
+          sizePerFile[idx] = size;
+          var reader = response.body.getReader();
+          function read() {
+            return reader.read().then(function(result) {
+              if (result.done) return;
+              loadedPerFile[idx] += result.value.length;
+              updateBar();
+              return read();
+            });
+          }
+          return read();
+        })
+        .catch(function() {});
+    });
+  }
+
   function initHands() {
     if (handsInstance) return;
     if (typeof Hands === 'undefined') {
-      statusEl.textContent = '⚠️ MediaPipe не загрузился';
+      mpStatus.textContent = '⚠️ MediaPipe не загрузился';
       return;
     }
     try {
@@ -422,7 +479,7 @@
         modelComplexity: 0,
         minDetectionConfidence: 0.5,
         minTrackingConfidence: 0.5,
-        selfieMode: true   // камера смотрит на тебя — зеркалим
+        selfieMode: true
       });
       handsInstance.onResults(function(results) {
         if (results.multiHandLandmarks && results.multiHandLandmarks.length) {
@@ -436,11 +493,22 @@
           handData = [];
         }
       });
+
+      // Прогресс: пока модель инициализируется — показываем 90-99%
+      trackModelDownload();
+
       handsInstance.initialize().then(function() {
         handsReady = true;
+        mpFill.style.width = '100%';
+        mpPct.textContent = '100%';
+        mpStatus.textContent = 'Готово ✓';
+        setTimeout(function() {
+          mpBar.classList.add('hidden');
+        }, 800);
         startMpLoop();
       }).catch(function(err) {
         console.error('MP init error', err);
+        mpStatus.textContent = '⚠️ Ошибка загрузки';
       });
     } catch (e) { console.error(e); }
   }
@@ -458,19 +526,19 @@
     loop();
   }
 
-  // ================== РУКИ — БЕЛЫЕ КОНТУРЫ ==================
-  // Как на скрине Quest: тонкая белая обводка + лёгкая заливка ладони
+  // ================== СКЕЛЕТ РУК ==================
+  // Простые линии между landmarks + точки на суставах
   var CONNECTIONS = [
     [0,1],[1,2],[2,3],[3,4],           // большой
     [0,5],[5,6],[6,7],[7,8],           // указательный
     [5,9],[9,10],[10,11],[11,12],      // средний
     [9,13],[13,14],[14,15],[15,16],    // безымянный
     [13,17],[17,18],[18,19],[19,20],   // мизинец
-    [0,17],[0,5],[5,17]                // ладонь
+    [0,17],[0,5]                       // ладонь
   ];
 
-  // Контур ладони для заливки
-  var PALM_POLY = [0, 1, 2, 3, 4, 8, 12, 16, 20, 19, 18, 17, 13, 9, 5, 0];
+  // Цвета для разных рук
+  var HAND_COLORS = ['#00ffff', '#ff44aa'];
 
   function drawHands() {
     handCtx.clearRect(0, 0, canvasHand.width, canvasHand.height);
@@ -480,45 +548,51 @@
 
     for (var hi = 0; hi < handData.length; hi++) {
       var lm = handData[hi].landmarks;
+      var color = HAND_COLORS[hi % HAND_COLORS.length];
 
-      // 1) Лёгкая заливка ладони
-      handCtx.beginPath();
-      for (var p = 0; p < PALM_POLY.length; p++) {
-        var pt = lm[PALM_POLY[p]];
-        var x = (1 - pt.x) * W;  // зеркалим X, т.к. selfieMode
-        var y = pt.y * H;
-        if (p === 0) handCtx.moveTo(x, y);
-        else handCtx.lineTo(x, y);
-      }
-      handCtx.closePath();
-      handCtx.fillStyle = 'rgba(255,255,255,0.22)';
-      handCtx.fill();
+      // Зеркалим X (селфи-камера)
+      function px(l) { return (1 - l.x) * W; }
+      function py(l) { return l.y * H; }
 
-      // 2) Обводка — тонкая белая, как на скрине
-      handCtx.strokeStyle = 'rgba(255,255,255,0.95)';
-      handCtx.lineWidth = 3;
+      // Линии
+      handCtx.strokeStyle = color;
+      handCtx.lineWidth = 4;
       handCtx.lineCap = 'round';
       handCtx.lineJoin = 'round';
-      handCtx.shadowColor = 'rgba(255,255,255,0.9)';
-      handCtx.shadowBlur = 10;
+      handCtx.shadowColor = color;
+      handCtx.shadowBlur = 12;
 
       for (var ci = 0; ci < CONNECTIONS.length; ci++) {
         var a = lm[CONNECTIONS[ci][0]];
         var b = lm[CONNECTIONS[ci][1]];
         handCtx.beginPath();
-        handCtx.moveTo((1 - a.x) * W, a.y * H);
-        handCtx.lineTo((1 - b.x) * W, b.y * H);
+        handCtx.moveTo(px(a), py(a));
+        handCtx.lineTo(px(b), py(b));
         handCtx.stroke();
       }
 
-      // 3) Точки на кончиках пальцев
-      handCtx.fillStyle = 'rgba(255,255,255,1)';
+      // Точки на всех суставах
+      handCtx.shadowBlur = 8;
+      handCtx.fillStyle = color;
+      for (var ji = 0; ji < lm.length; ji++) {
+        var j = lm[ji];
+        handCtx.beginPath();
+        handCtx.arc(px(j), py(j), 4, 0, Math.PI * 2);
+        handCtx.fill();
+      }
+
+      // Кончики пальцев — крупнее и белым ядром
+      handCtx.shadowBlur = 15;
       var tips = [4, 8, 12, 16, 20];
       for (var ti = 0; ti < tips.length; ti++) {
         var tp = lm[tips[ti]];
+        handCtx.fillStyle = '#ffffff';
         handCtx.beginPath();
-        handCtx.arc((1 - tp.x) * W, tp.y * H, 5, 0, Math.PI * 2);
+        handCtx.arc(px(tp), py(tp), 6, 0, Math.PI * 2);
         handCtx.fill();
+        handCtx.strokeStyle = color;
+        handCtx.lineWidth = 2;
+        handCtx.stroke();
       }
 
       handCtx.shadowBlur = 0;
@@ -553,7 +627,6 @@
       cube.material.emissive.setHex(color);
       cube.userData.color = color;
 
-      // Спавн в конусе перед камерой
       var angle = (Math.random() - 0.5) * Math.PI * 0.9;
       var radius = 3 + Math.random() * 2;
       cube.position.set(
@@ -573,16 +646,14 @@
   }
 
   // ================== ЛОВЛЯ РУКАМИ ==================
-  // Проецируем позицию руки на расстояние 1.5м от камеры
   var CATCH_DIST = 1.5;
-  var CATCH_RADIUS = 0.5;
+  var CATCH_RADIUS = 0.55;
 
   function checkHits() {
     if (!handData.length) return;
 
-    // Мировые координаты рук: raycast из камеры через экранную точку руки
     var handWorlds = handData.map(function(h) {
-      var nx = 1 - h.x;   // зеркалим
+      var nx = 1 - h.x;
       var ny = h.y;
       var ndcX = nx * 2 - 1;
       var ndcY = -(ny * 2 - 1);
@@ -594,7 +665,6 @@
     for (var i = 0; i < cubes.length; i++) {
       var cube = cubes[i];
       if (!cube.userData.active) continue;
-      // Проверяем только кубы в зоне руки
       for (var j = 0; j < handWorlds.length; j++) {
         var d = cube.position.distanceTo(handWorlds[j]);
         if (d < CATCH_RADIUS) {
@@ -626,18 +696,14 @@
     if (dt > 0.1) dt = 0.1;
     if (dt < 0) dt = 0;
 
-    // Плавное сглаживание поворота
-    currentYaw   += (targetYaw   - currentYaw)   * Math.min(1, dt * 10);
-    currentPitch += (targetPitch - currentPitch) * Math.min(1, dt * 10);
-    currentRoll  += (targetRoll  - currentRoll)  * Math.min(1, dt * 10);
+    currentYaw   += (targetYaw   - currentYaw)   * Math.min(1, dt * 12);
+    currentPitch += (targetPitch - currentPitch) * Math.min(1, dt * 12);
+    currentRoll  += (targetRoll  - currentRoll)  * Math.min(1, dt * 12);
 
-    // Камера: yaw (вокруг Y) → pitch (вокруг X) → roll (вокруг Z)
-    camera.rotation.order = 'YXZ';
     camera.rotation.y = currentYaw;
     camera.rotation.x = currentPitch;
     camera.rotation.z = currentRoll;
 
-    // Панорама следует за камерой (она "бесконечная")
     pano.position.copy(camera.position);
 
     if (running) {
@@ -653,14 +719,12 @@
       for (var i = 0; i < cubes.length; i++) {
         var cube = cubes[i];
         if (!cube.userData.active) continue;
-        // Кубы летят к камере
         var dir = camera.position.clone().sub(cube.position).normalize();
         cube.position.addScaledVector(dir, cube.userData.speed * dt);
         cube.rotation.x += cube.userData.rotSpeed.x * dt;
         cube.rotation.y += cube.userData.rotSpeed.y * dt;
         cube.rotation.z += cube.userData.rotSpeed.z * dt;
 
-        // Пролетел мимо?
         if (cube.position.distanceTo(camera.position) < 0.5) {
           cube.userData.active = false;
           cube.visible = false;
@@ -676,7 +740,6 @@
       checkHits();
     }
 
-    // Частицы
     var anyAlive = false;
     for (var j = 0; j < PARTICLE_COUNT; j++) {
       if (pLife[j] <= 0) continue;
@@ -697,12 +760,6 @@
       particles.material.opacity = 0;
     }
 
-    // Меню всегда смотрит на камеру? НЕТ — оно фиксировано в мире.
-    // Но пусть оно не "отворачивается" — сделаем Billboarding по Y:
-    // menuGroup.rotation.y = Math.atan2(camera.position.x - menuGroup.position.x, camera.position.z - menuGroup.position.z);
-    // Закомментировано — в Quest меню фиксировано.
-
-    // Руки
     handDrawAccum += dt;
     if (handDrawAccum >= HAND_DRAW_INTERVAL) {
       handDrawAccum = 0;
@@ -734,8 +791,7 @@
     // 1) Гироскоп
     enableGyro();
 
-    // 2) Камера (для рук)
-    statusEl.textContent = 'Запрос камеры...';
+    // 2) Камера
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       startBtn.disabled = false;
       startBtn.textContent = '❌ Нет камеры';
@@ -745,7 +801,7 @@
     navigator.mediaDevices.getUserMedia({
       audio: false,
       video: {
-        facingMode: 'user',      // передняя камера — смотрит на тебя
+        facingMode: 'user',
         width: { ideal: 640 },
         height: { ideal: 480 }
       }
@@ -754,12 +810,18 @@
       return videoEl.play();
     }).then(function() {
       startBtn.classList.add('hidden');
-      loadingEl.classList.add('hidden');
       resetGame();
       running = true;
       lastT = performance.now() / 1000;
+
+      // Показываем прогресс-бар для MediaPipe
+      mpBar.classList.remove('hidden');
+      mpStatus.textContent = 'Загрузка рук...';
+      mpFill.style.width = '0%';
+      mpPct.textContent = '0%';
+
+      statusEl.textContent = 'Поверни телефон — осмотрись. Лови кубы.';
       initHands();
-      statusEl.textContent = 'Поверни телефон — осмотрись. Лови кубы руками.';
     }).catch(function(err) {
       console.error(err);
       startBtn.disabled = false;
