@@ -22,6 +22,7 @@
   #hand-canvas  { z-index: 2; pointer-events: none; }
   #touch-layer  { position: fixed; inset: 0; z-index: 5; touch-action: none; }
 
+  /* ПРЕЛОАДЕР */
   #preloader {
     position: fixed; inset: 0;
     z-index: 500;
@@ -36,26 +37,36 @@
   }
   #preloader.hidden { opacity: 0; pointer-events: none; }
   #preloader .logo {
-    font-size: 30px; font-weight: 900; letter-spacing: 3px;
+    font-size: 30px;
+    font-weight: 900;
+    letter-spacing: 3px;
     margin-bottom: 8px;
     background: linear-gradient(135deg, #ff3366, #aa44ff, #33aaff);
-    -webkit-background-clip: text; background-clip: text;
+    -webkit-background-clip: text;
+    background-clip: text;
     -webkit-text-fill-color: transparent;
     text-align: center;
   }
   #preloader .subtitle {
-    font-size: 12px; color: #88aaff;
-    letter-spacing: 4px; margin-bottom: 40px; font-weight: 600;
+    font-size: 12px;
+    color: #88aaff;
+    letter-spacing: 4px;
+    margin-bottom: 40px;
+    font-weight: 600;
     text-align: center;
   }
   #preloader .bar-track {
-    width: min(320px, 78vw); height: 8px;
+    width: min(320px, 78vw);
+    height: 8px;
     background: rgba(255,255,255,0.12);
-    border-radius: 6px; overflow: hidden; margin-bottom: 14px;
+    border-radius: 6px;
+    overflow: hidden;
+    margin-bottom: 14px;
     box-shadow: 0 0 20px rgba(170,68,255,0.3) inset;
   }
   #preloader .bar-fill {
-    height: 100%; width: 0%;
+    height: 100%;
+    width: 0%;
     background: linear-gradient(90deg, #4488ff, #aa44ff, #ff44aa);
     border-radius: 6px;
     transition: width 0.25s ease;
@@ -63,17 +74,25 @@
   }
   #preloader .bar-label {
     width: min(320px, 78vw);
-    display: flex; justify-content: space-between;
-    font-size: 12px; font-weight: 600; margin-bottom: 4px;
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 4px;
   }
   #preloader .bar-label .txt { color: #88aaff; }
   #preloader .bar-label .pct { color: #44ffaa; font-variant-numeric: tabular-nums; }
   #preloader .hint {
-    margin-top: 30px; font-size: 12px; color: #556;
-    text-align: center; max-width: 300px; line-height: 1.6;
+    margin-top: 30px;
+    font-size: 12px;
+    color: #556;
+    text-align: center;
+    max-width: 300px;
+    line-height: 1.6;
   }
   #preloader .spinner {
-    margin-top: 40px; width: 40px; height: 40px;
+    margin-top: 40px;
+    width: 40px; height: 40px;
     border: 3px solid rgba(255,255,255,0.1);
     border-top-color: #aa44ff;
     border-radius: 50%;
@@ -85,12 +104,15 @@
     display: none;
     margin-top: 30px;
     padding: 18px 40px;
-    font-size: 18px; font-weight: 800;
+    font-size: 18px;
+    font-weight: 800;
     color: #fff;
     background: linear-gradient(135deg, #ff3366, #aa44ff);
-    border: none; border-radius: 60px;
+    border: none;
+    border-radius: 60px;
     box-shadow: 0 10px 40px rgba(170,68,255,0.6);
-    cursor: pointer; letter-spacing: 1px;
+    cursor: pointer;
+    letter-spacing: 1px;
     font-family: inherit;
     -webkit-tap-highlight-color: transparent;
     animation: popIn 0.4s ease;
@@ -102,6 +124,7 @@
   #preloader.done .ready-btn { display: block; }
   #preloader.done .hint { display: none; }
 
+  /* КНОПКА FULLSCREEN */
   #fs-btn {
     position: fixed;
     top: max(10px, env(safe-area-inset-top));
@@ -113,17 +136,20 @@
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
     border: 1px solid rgba(255,255,255,0.25);
-    color: #fff; font-size: 20px;
+    color: #fff;
+    font-size: 20px;
     cursor: pointer;
-    display: flex; align-items: center; justify-content: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     -webkit-tap-highlight-color: transparent;
     user-select: none;
     touch-action: manipulation;
   }
   #fs-btn:active { transform: scale(0.9); }
 
-  /* Внутренняя кнопка "Разрешить камеру" */
-  #perm-btn {
+  /* КНОПКА СТАРТА (одноразовая, исчезает) */
+  #start-btn {
     position: fixed;
     top: 50%; left: 50%;
     transform: translate(-50%, -50%);
@@ -138,10 +164,11 @@
     -webkit-tap-highlight-color: transparent;
     letter-spacing: 1px;
     font-family: inherit;
+    display: none;
   }
-  #perm-btn:active { transform: translate(-50%, -50%) scale(0.95); }
-  #perm-btn.hidden { display: none; }
+  #start-btn:active { transform: translate(-50%, -50%) scale(0.95); }
 
+  /* ПРОГРЕСС БАР MEDIAPIPE */
   #mp-bar {
     position: fixed;
     top: max(52px, calc(env(safe-area-inset-top) + 40px));
@@ -191,7 +218,9 @@
     -webkit-backdrop-filter: blur(10px);
     z-index: 100;
     max-width: 90vw; text-align: center;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   #toast {
@@ -201,10 +230,14 @@
     z-index: 300;
     background: rgba(0,0,0,0.85);
     color: #fff;
-    padding: 12px 20px; border-radius: 16px;
-    font-size: 13px; max-width: 85vw;
-    text-align: center; line-height: 1.4;
-    opacity: 0; pointer-events: none;
+    padding: 12px 20px;
+    border-radius: 16px;
+    font-size: 13px;
+    max-width: 85vw;
+    text-align: center;
+    line-height: 1.4;
+    opacity: 0;
+    pointer-events: none;
     transition: opacity 0.3s, transform 0.3s;
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
@@ -221,6 +254,7 @@
 <div id="preloader">
   <div class="logo">JOB SIMULATOR</div>
   <div class="subtitle">VR EXPERIENCE</div>
+
   <div class="bar-label">
     <span class="txt" id="pre-status">Загрузка...</span>
     <span class="pct" id="pre-pct">0%</span>
@@ -228,6 +262,7 @@
   <div class="bar-track">
     <div class="bar-fill" id="pre-fill"></div>
   </div>
+
   <div class="spinner" id="pre-spinner"></div>
   <button class="ready-btn" id="pre-ready">▶ ВОЙТИ В VR</button>
   <div class="hint" id="pre-hint">
@@ -250,7 +285,7 @@
   <div id="mp-track"><div id="mp-fill"></div></div>
 </div>
 <div id="status">Нажми «Старт» чтобы войти</div>
-<button id="perm-btn" class="hidden">▶ РАЗРЕШИТЬ КАМЕРУ</button>
+<button id="start-btn">▶ ВОЙТИ В VR</button>
 
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.js" crossorigin="anonymous"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -259,7 +294,7 @@
 (function() {
   'use strict';
 
-  // ============ ПРЕЛОАДЕР ============
+  // ============ DOM ============
   var preloader = document.getElementById('preloader');
   var preStatus = document.getElementById('pre-status');
   var prePct    = document.getElementById('pre-pct');
@@ -267,6 +302,28 @@
   var preReady  = document.getElementById('pre-ready');
   var preSpinner= document.getElementById('pre-spinner');
 
+  var canvas3d   = document.getElementById('three-canvas');
+  var canvasHand = document.getElementById('hand-canvas');
+  var handCtx    = canvasHand.getContext('2d');
+  var touchLayer = document.getElementById('touch-layer');
+  var startBtn   = document.getElementById('start-btn');
+  var fsBtn      = document.getElementById('fs-btn');
+  var statusEl   = document.getElementById('status');
+  var mpBar      = document.getElementById('mp-bar');
+  var mpFill     = document.getElementById('mp-fill');
+  var mpPct      = document.getElementById('mp-pct');
+  var mpStatus   = document.getElementById('mp-status');
+  var toastEl    = document.getElementById('toast');
+
+  if (typeof THREE === 'undefined') {
+    preStatus.textContent = '❌ Three.js не загрузился';
+    return;
+  }
+
+  // Скрываем кнопку старта по умолчанию
+  startBtn.style.display = 'none';
+
+  // ============ ПРЕЛОАДЕР ============
   var preProgress = 0;
   var preDone = false;
 
@@ -288,80 +345,68 @@
 
   setPreProgress(0.05, 'Инициализация...');
 
-  var checkLibs = setInterval(function() {
-    if (typeof THREE !== 'undefined') {
-      setPreProgress(0.15, 'Three.js загружен');
-      clearInterval(checkLibs);
-    }
-  }, 100);
+  var libCheck = setInterval(function() {
+    if (typeof THREE !== 'undefined') setPreProgress(0.15, 'Three.js загружен');
+  }, 200);
 
-  var checkHands = setInterval(function() {
-    if (typeof Hands !== 'undefined') {
-      setPreProgress(0.25, 'MediaPipe готов');
-      clearInterval(checkHands);
-    }
-  }, 100);
+  var handsCheck = setInterval(function() {
+    if (typeof Hands !== 'undefined') setPreProgress(0.25, 'MediaPipe готов');
+  }, 200);
 
-  function preloadMediaPipeModel() {
+  // Прокачка модели
+  (function preloadModel() {
     var urls = [
-      { url: 'https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands_solution_packed_assets_loader.js', weight: 0.05 },
-      { url: 'https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands_solution_simd_wasm_bin.wasm', weight: 0.75 },
-      { url: 'https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.binarypb', weight: 0.20 }
+      { url: 'https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands_solution_packed_assets_loader.js', size: 50000 },
+      { url: 'https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands_solution_simd_wasm_bin.wasm', size: 5000000 },
+      { url: 'https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.binarypb', size: 500000 }
     ];
-    var loadedPerFile = [0, 0, 0];
-    var sizePerFile = [50000, 5000000, 500000];
-    var baseProgress = 0.25;
-    var modelRange = 0.6;
+    var loaded = [0, 0, 0];
+    var sizes = [50000, 5000000, 500000];
+    var completed = 0;
 
-    function updateModelProgress() {
-      var total = 0, loaded = 0;
-      for (var i = 0; i < urls.length; i++) {
-        total += sizePerFile[i];
-        loaded += Math.min(loadedPerFile[i], sizePerFile[i]);
-      }
-      var modelPct = loaded / total;
-      var overall = baseProgress + modelRange * modelPct;
+    function updateProgress() {
+      var total = 0, got = 0;
+      for (var i = 0; i < 3; i++) { total += sizes[i]; got += Math.min(loaded[i], sizes[i]); }
+      var overall = 0.25 + 0.6 * (got / total);
       setPreProgress(overall, 'Загрузка модели рук...');
     }
 
-    var completed = 0;
     urls.forEach(function(item, idx) {
-      fetch(item.url).then(function(response) {
-        var size = parseInt(response.headers.get('content-length')) || sizePerFile[idx];
-        sizePerFile[idx] = size;
-        var reader = response.body.getReader();
+      fetch(item.url).then(function(r) {
+        var s = parseInt(r.headers.get('content-length')) || sizes[idx];
+        sizes[idx] = s;
+        var reader = r.body.getReader();
         function read() {
-          return reader.read().then(function(result) {
-            if (result.done) {
+          return reader.read().then(function(res) {
+            if (res.done) {
               completed++;
-              if (completed === urls.length) {
-                setPreProgress(0.9, 'Инициализация движка...');
-                setTimeout(finishPreload, 500);
+              if (completed === 3) {
+                setPreProgress(0.92, 'Инициализация...');
+                setTimeout(finishPreload, 400);
               }
               return;
             }
-            loadedPerFile[idx] += result.value.length;
-            updateModelProgress();
+            loaded[idx] += res.value.length;
+            updateProgress();
             return read();
           });
         }
         return read();
       }).catch(function() {
         completed++;
-        if (completed === urls.length) {
-          setPreProgress(0.9, 'Инициализация движка...');
-          setTimeout(finishPreload, 500);
+        if (completed === 3) {
+          setPreProgress(0.92, 'Инициализация...');
+          setTimeout(finishPreload, 400);
         }
       });
     });
-  }
-  preloadMediaPipeModel();
+  })();
 
+  // Панорама
   (function preloadPano() {
     var img = new Image();
     img.crossOrigin = 'anonymous';
-    img.onload = function() { setPreProgress(0.88, 'Панорама загружена'); };
-    img.onerror = function() { setPreProgress(0.88, 'Панорама (fallback)'); };
+    img.onload = img.onerror = function() { setPreProgress(0.88, 'Панорама готова'); };
     img.src = 'https://threejs.org/examples/textures/2294472375_24a3b8ef46_o.jpg';
   })();
 
@@ -369,33 +414,11 @@
     if (!preDone) { setPreProgress(0.95, 'Почти готово...'); finishPreload(); }
   }, 25000);
 
-  // ============ КНОПКА "РАЗРЕШИТЬ КАМЕРУ" ============
-  // Показывается ПОСЛЕ прелоадера, вместо старой кнопки.
-  var permBtn = document.getElementById('perm-btn');
-  var permHandled = false;
-
-  function showPermButton() {
-    if (permHandled) return;
-    permBtn.classList.remove('hidden');
-  }
-
-  // ============ ОСНОВНОЙ КОД ============
-  var canvas3d   = document.getElementById('three-canvas');
-  var canvasHand = document.getElementById('hand-canvas');
-  var handCtx    = canvasHand.getContext('2d');
-  var touchLayer = document.getElementById('touch-layer');
-  var fsBtn      = document.getElementById('fs-btn');
-  var statusEl   = document.getElementById('status');
-  var mpBar      = document.getElementById('mp-bar');
-  var mpFill     = document.getElementById('mp-fill');
-  var mpPct      = document.getElementById('mp-pct');
-  var mpStatus   = document.getElementById('mp-status');
-  var toastEl    = document.getElementById('toast');
-
-  if (typeof THREE === 'undefined') {
-    preStatus.textContent = '❌ Three.js не загрузился';
-    return;
-  }
+  preReady.addEventListener('click', function() {
+    preloader.classList.add('hidden');
+    setTimeout(function() { preloader.style.display = 'none'; }, 700);
+    startBtn.style.display = 'block';
+  });
 
   // ============ ТОСТ ============
   var toastTimer = null;
@@ -560,7 +583,7 @@
   playBtn.userData.isButton = true;
   playBtn.userData.action = 'play';
 
-  // Кнопка МЕНЮ (в игре)
+  // Кнопка МЕНЮ
   var backBtnGroup = new THREE.Group();
   backBtnGroup.position.set(0, 2.9, -3.0);
   gameScene.add(backBtnGroup);
@@ -610,21 +633,26 @@
   rightWall.rotation.y = -Math.PI / 2;
   gameScene.add(rightWall);
 
-  // СТОЛ
-  var DESK_X = 0, DESK_Z = -1.5;
-  var DESK_TOP_Y = 0.85;      // верх столешницы
-  var DESK_THICKNESS = 0.1;
-  var DESK_WIDTH = 2.6;
-  var DESK_DEPTH = 1.2;
-
+  // ============ СТОЛ ============
   var deskGroup = new THREE.Group();
-  deskGroup.position.set(DESK_X, 0, DESK_Z);
+  deskGroup.position.set(0, 0, -1.5);
   gameScene.add(deskGroup);
 
   var woodMat = new THREE.MeshStandardMaterial({ color: 0x8b6a4a, roughness: 0.65 });
-  var deskTop = new THREE.Mesh(new THREE.BoxGeometry(DESK_WIDTH, DESK_THICKNESS, DESK_DEPTH), woodMat);
-  deskTop.position.set(0, DESK_TOP_Y, 0);
+  var deskTop = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.1, 1.2), woodMat);
+  deskTop.position.set(0, 0.85, 0);
   deskGroup.add(deskTop);
+
+  // Границы столешницы в МИРОВЫХ координатах:
+  // Стол в (0, 0, -1.5), столешница 2.6 x 1.2 на высоте 0.85
+  // X: -1.3..1.3, Z: -2.1..-0.9, Y верх = 0.9
+  var DESK_TOP_Y = 0.9;
+  var DESK_MIN_X = -1.3, DESK_MAX_X = 1.3;
+  var DESK_MIN_Z = -2.1, DESK_MAX_Z = -0.9;
+
+  function isOverDesk(x, z) {
+    return x >= DESK_MIN_X && x <= DESK_MAX_X && z >= DESK_MIN_Z && z <= DESK_MAX_Z;
+  }
 
   var legMat = new THREE.MeshStandardMaterial({ color: 0x5a4530, roughness: 0.8 });
   var legPositions = [[-1.2, 0.4, -0.5], [1.2, 0.4, -0.5], [-1.2, 0.4, 0.5], [1.2, 0.4, 0.5]];
@@ -634,14 +662,12 @@
     deskGroup.add(leg);
   }
 
-  // Верх столешницы в мировых координатах
-  var DESK_WORLD_TOP_Y = DESK_TOP_Y + DESK_THICKNESS / 2; // 0.9
-
-  // ПРЕДМЕТЫ
+  // ============ ПРЕДМЕТЫ ============
   var grabbables = [];
 
+  // Кружка
   var mugGroup = new THREE.Group();
-  mugGroup.position.set(DESK_X - 0.8, DESK_WORLD_TOP_Y + 0.09, DESK_Z);
+  mugGroup.position.set(-0.8, 1.05, -1.5);
   var mugMat = new THREE.MeshStandardMaterial({ color: 0xff4444, roughness: 0.4 });
   mugGroup.add(new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.18, 16), mugMat));
   var handle = new THREE.Mesh(new THREE.TorusGeometry(0.06, 0.02, 8, 16), mugMat);
@@ -649,31 +675,25 @@
   handle.rotation.y = Math.PI / 2;
   mugGroup.add(handle);
   gameScene.add(mugGroup);
-  grabbables.push({
-    mesh: mugGroup, name: 'кружку',
-    home: new THREE.Vector3(DESK_X - 0.8, DESK_WORLD_TOP_Y + 0.09, DESK_Z),
-    radius: 0.12
-  });
+  grabbables.push({ mesh: mugGroup, name: 'кружку', home: new THREE.Vector3(-0.8, 1.05, -1.5) });
 
+  // Степлер
   var staplerGroup = new THREE.Group();
-  staplerGroup.position.set(DESK_X + 0.5, DESK_WORLD_TOP_Y + 0.06, DESK_Z);
+  staplerGroup.position.set(0.5, 1.02, -1.5);
   var staplerMat = new THREE.MeshStandardMaterial({ color: 0x2222aa, roughness: 0.4, metalness: 0.6 });
   staplerGroup.add(new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.08, 0.1), staplerMat));
   var staplerTop = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.06, 0.08), staplerMat);
   staplerTop.position.set(0, 0.06, 0);
   staplerGroup.add(staplerTop);
   gameScene.add(staplerGroup);
-  grabbables.push({
-    mesh: staplerGroup, name: 'степлер',
-    home: new THREE.Vector3(DESK_X + 0.5, DESK_WORLD_TOP_Y + 0.06, DESK_Z),
-    radius: 0.13
-  });
+  grabbables.push({ mesh: staplerGroup, name: 'степлер', home: new THREE.Vector3(0.5, 1.02, -1.5) });
 
+  // Яблоко
   var apple = new THREE.Mesh(
     new THREE.SphereGeometry(0.1, 16, 16),
     new THREE.MeshStandardMaterial({ color: 0xcc3322, roughness: 0.5 })
   );
-  apple.position.set(DESK_X - 0.2, DESK_WORLD_TOP_Y + 0.1, DESK_Z);
+  apple.position.set(-0.2, 1.1, -1.5);
   var stem = new THREE.Mesh(
     new THREE.CylinderGeometry(0.01, 0.01, 0.05, 6),
     new THREE.MeshStandardMaterial({ color: 0x4a3a20 })
@@ -681,14 +701,11 @@
   stem.position.set(0, 0.11, 0);
   apple.add(stem);
   gameScene.add(apple);
-  grabbables.push({
-    mesh: apple, name: 'яблоко',
-    home: new THREE.Vector3(DESK_X - 0.2, DESK_WORLD_TOP_Y + 0.1, DESK_Z),
-    radius: 0.1
-  });
+  grabbables.push({ mesh: apple, name: 'яблоко', home: new THREE.Vector3(-0.2, 1.1, -1.5) });
 
+  // Телефон
   var phoneGroup = new THREE.Group();
-  phoneGroup.position.set(DESK_X + 0.9, DESK_WORLD_TOP_Y + 0.02, DESK_Z + 0.2);
+  phoneGroup.position.set(0.9, 1.02, -1.3);
   phoneGroup.add(new THREE.Mesh(
     new THREE.BoxGeometry(0.1, 0.2, 0.015),
     new THREE.MeshStandardMaterial({ color: 0x111118, roughness: 0.3, metalness: 0.5 })
@@ -699,17 +716,13 @@
   );
   phoneScreen.position.z = 0.009;
   phoneGroup.add(phoneScreen);
-  phoneGroup.rotation.x = -Math.PI / 2;
   phoneGroup.rotation.z = 0.3;
   gameScene.add(phoneGroup);
-  grabbables.push({
-    mesh: phoneGroup, name: 'телефон',
-    home: new THREE.Vector3(DESK_X + 0.9, DESK_WORLD_TOP_Y + 0.02, DESK_Z + 0.2),
-    radius: 0.12
-  });
+  grabbables.push({ mesh: phoneGroup, name: 'телефон', home: new THREE.Vector3(0.9, 1.02, -1.3) });
 
+  // Бумаги
   var papersGroup = new THREE.Group();
-  papersGroup.position.set(DESK_X - 0.6, DESK_WORLD_TOP_Y + 0.01, DESK_Z + 0.3);
+  papersGroup.position.set(-0.6, 0.92, -1.2);
   for (var pp = 0; pp < 4; pp++) {
     var paper = new THREE.Mesh(
       new THREE.PlaneGeometry(0.2, 0.28),
@@ -720,13 +733,9 @@
     papersGroup.add(paper);
   }
   gameScene.add(papersGroup);
-  grabbables.push({
-    mesh: papersGroup, name: 'бумаги',
-    home: new THREE.Vector3(DESK_X - 0.6, DESK_WORLD_TOP_Y + 0.01, DESK_Z + 0.3),
-    radius: 0.15
-  });
+  grabbables.push({ mesh: papersGroup, name: 'бумаги', home: new THREE.Vector3(-0.6, 0.92, -1.2) });
 
-  // МУСОРКА
+  // ============ МУСОРКА ============
   var trashGroup = new THREE.Group();
   trashGroup.position.set(1.6, 0, -2);
   var trashBody = new THREE.Mesh(
@@ -737,7 +746,7 @@
   trashGroup.add(trashBody);
   gameScene.add(trashGroup);
 
-  // РОБОТ
+  // ============ РОБОТ ============
   var robotGroup = new THREE.Group();
   robotGroup.position.set(0, 1.3, -3.2);
   gameScene.add(robotGroup);
@@ -764,7 +773,7 @@
   chestLight.position.set(0, -0.55, 0.18);
   robotGroup.add(chestLight);
 
-  // ПАНЕЛЬ ЗАДАНИЙ
+  // ============ ПАНЕЛЬ ЗАДАНИЙ ============
   var taskPanelGroup = new THREE.Group();
   taskPanelGroup.position.set(0, 2.4, -3.0);
   gameScene.add(taskPanelGroup);
@@ -804,6 +813,7 @@
   taskTextMesh.position.z = 0.005;
   taskPanelGroup.add(taskTextMesh);
 
+  // ============ ЗАДАНИЯ ============
   var tasks = [
     { text: 'Возьми кружку', target: 'кружку', done: false },
     { text: 'Брось яблоко в мусорку', target: 'яблоко', done: false },
@@ -823,49 +833,7 @@
   }
   updateTaskText(tasks[0].text);
 
-  // ================================================================
-  // ВИРТУАЛЬНЫЕ КОНТРОЛЛЕРЫ
-  // ================================================================
-  // Привязаны к рукам. Отображаются как серые стельки (по фото).
-  var controllers = [];
-
-  function makeController(index) {
-    var group = new THREE.Group();
-    group.visible = false;
-    scene.add(group);
-
-    var mat = new THREE.MeshStandardMaterial({
-      color: 0x555a60,
-      roughness: 0.9,
-      metalness: 0.1
-    });
-
-    // Форма стельки: эллипс вытянутый
-    var shape = new THREE.Shape();
-    var w = 0.09, h = 0.22;
-    shape.absellipse(0, 0, w, h, 0, Math.PI * 2, false, 0);
-    var extrudeSettings = { depth: 0.02, bevelEnabled: true, bevelSize: 0.005, bevelThickness: 0.005, bevelSegments: 2 };
-    var geom = new THREE.ExtrudeGeometry(shape, extrudeSettings);
-    geom.center();
-    var mesh = new THREE.Mesh(geom, mat);
-    mesh.rotation.x = -Math.PI / 2;
-    group.add(mesh);
-
-    // Метка, чтобы отличать левую и правую
-    var dotMat = new THREE.MeshBasicMaterial({ color: index === 0 ? 0x44ffff : 0xff44aa });
-    var dot = new THREE.Mesh(new THREE.CircleGeometry(0.02, 12), dotMat);
-    dot.position.set(0, 0, 0.012);
-    dot.rotation.x = -Math.PI / 2;
-    group.add(dot);
-
-    controllers.push({ group: group, mesh: mesh, index: index });
-  }
-  makeController(0);
-  makeController(1);
-
-  // ================================================================
-  // СВАЙП + ТАП
-  // ================================================================
+  // ============ СВАЙП + ТАП ============
   var SWIPE_SENS = 0.005;
   var targetYaw = 0, targetPitch = 0;
   var currentYaw = 0, currentPitch = 0;
@@ -1012,11 +980,12 @@
   fsBtn.addEventListener('click', handleFsPress);
   fsBtn.addEventListener('touchend', handleFsPress, { passive: false });
 
-  // ============ MEDIAPIPE (ЗАДНЯЯ КАМЕРА) ============
+  // ============ MEDIAPIPE ============
   var handsReady = false;
   var handData = [];
   var handsInstance = null;
   var mpRunning = false;
+  var lastHandedness = [];
 
   var videoEl = document.createElement('video');
   videoEl.setAttribute('playsinline', '');
@@ -1041,17 +1010,43 @@
         modelComplexity: 0,
         minDetectionConfidence: 0.5,
         minTrackingConfidence: 0.5,
-        // ВАЖНО: selfieMode:false — потому что камера ЗАДНЯЯ.
-        // Координаты идут как есть, не зеркалим.
-        selfieMode: false
+        selfieMode: false    // ← ЗАДНЯЯ КАМЕРА — без зеркалирования
       });
       handsInstance.onResults(function(results) {
         if (results.multiHandLandmarks && results.multiHandLandmarks.length) {
-          handData = results.multiHandLandmarks.map(function(lm) {
+          handData = results.multiHandLandmarks.map(function(lm, i) {
+            // Центр ладони
             var ids = [0, 5, 9, 13, 17];
             var x = 0, y = 0;
-            for (var i = 0; i < ids.length; i++) { x += lm[ids[i]].x; y += lm[ids[i]].y; }
-            return { x: x / ids.length, y: y / ids.length, landmarks: lm };
+            for (var k = 0; k < ids.length; k++) { x += lm[ids[k]].x; y += lm[ids[k]].y; }
+            x /= ids.length; y /= ids.length;
+
+            // Определяем "сжатие" — насколько близко кончики пальцев к ладони
+            // Это будет триггер для стельки-контроллера
+            var tips = [4, 8, 12, 16, 20];
+            var tipDist = 0;
+            for (var t = 0; t < tips.length; t++) {
+              var tip = lm[tips[t]];
+              var dx = tip.x - x;
+              var dy = tip.y - y;
+              tipDist += Math.sqrt(dx * dx + dy * dy);
+            }
+            tipDist /= tips.length;
+
+            // Если средний радиус пальцев от центра ладони < 0.15 — рука сжата
+            var isSqueezed = tipDist < 0.13;
+
+            // handedness: какая рука (Left/Right от MediaPipe, но зеркалится через selfieMode)
+            var handedness = results.multiHandedness && results.multiHandedness[i] ?
+                             results.multiHandedness[i].label : 'Right';
+
+            return {
+              x: x, y: y,
+              landmarks: lm,
+              isSqueezed: isSqueezed,
+              handedness: handedness,
+              tipDist: tipDist
+            };
           });
         } else {
           handData = [];
@@ -1121,7 +1116,7 @@
     loop();
   }
 
-  // ============ РУКИ (скелет на canvas) ============
+  // ============ РУКИ ============
   var CONNECTIONS = [
     [0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],
     [5,9],[9,10],[10,11],[11,12],[9,13],[13,14],[14,15],[15,16],
@@ -1133,18 +1128,24 @@
     handCtx.clearRect(0, 0, canvasHand.width, canvasHand.height);
     if (!handData.length) return;
     var W = canvasHand.width, H = canvasHand.height;
+
     for (var hi = 0; hi < handData.length; hi++) {
-      var lm = handData[hi].landmarks;
+      var data = handData[hi];
+      var lm = data.landmarks;
       var color = HAND_COLORS[hi % HAND_COLORS.length];
-      // Задняя камера — НЕ зеркалим
+
+      // НЕ зеркалим — задняя камера
       function px(l) { return l.x * W; }
       function py(l) { return l.y * H; }
+
+      // === СКЕЛЕТ РУКИ ===
       handCtx.strokeStyle = color;
       handCtx.lineWidth = 4;
       handCtx.lineCap = 'round';
       handCtx.lineJoin = 'round';
       handCtx.shadowColor = color;
       handCtx.shadowBlur = 12;
+
       for (var ci = 0; ci < CONNECTIONS.length; ci++) {
         var a = lm[CONNECTIONS[ci][0]];
         var b = lm[CONNECTIONS[ci][1]];
@@ -1153,6 +1154,7 @@
         handCtx.lineTo(px(b), py(b));
         handCtx.stroke();
       }
+
       handCtx.shadowBlur = 8;
       handCtx.fillStyle = color;
       for (var ji = 0; ji < lm.length; ji++) {
@@ -1161,6 +1163,7 @@
         handCtx.arc(px(j), py(j), 4, 0, Math.PI * 2);
         handCtx.fill();
       }
+
       handCtx.shadowBlur = 15;
       var tips = [4, 8, 12, 16, 20];
       for (var ti = 0; ti < tips.length; ti++) {
@@ -1173,12 +1176,78 @@
         handCtx.lineWidth = 2;
         handCtx.stroke();
       }
+
+      // === СТЕЛЬКА-КОНТРОЛЛЕР ===
+      // Рисуем белую овальную стельку под ладонью
+      // Соответствует форме твоей серой стельки на фото
+      var palmX = px(lm[9]);  // центр ладони
+      var palmY = py(lm[9]);
+      var palmR = 0;  // радиус
+
+      // Размер стельки зависит от размера руки на экране
+      var wristPt = lm[0];
+      var midPt = lm[9];
+      var handSizePx = Math.sqrt(
+        Math.pow((wristPt.x - midPt.x) * W, 2) +
+        Math.pow((wristPt.y - midPt.y) * H, 2)
+      );
+      var soleWidth = handSizePx * 0.9;   // ширина стельки
+      var soleHeight = handSizePx * 1.8;  // длина стельки
+
+      // Угол ладони (от запястья к среднему пальцу)
+      var midFingerTip = lm[12];
+      var angle = Math.atan2(
+        (midFingerTip.y - wristPt.y) * H,
+        (midFingerTip.x - wristPt.x) * W
+      ) - Math.PI / 2;  // стелька "вдоль" ладони
+
+      handCtx.save();
+      handCtx.translate(palmX, palmY);
+      handCtx.rotate(angle);
+
+      // Тень/свечение стельки
+      handCtx.shadowColor = '#ffffff';
+      handCtx.shadowBlur = 20;
+
+      // Белая стелька (скруглённый овал)
+      handCtx.fillStyle = 'rgba(255,255,255,0.92)';
+      handCtx.beginPath();
+      // Используем эллипс
+      handCtx.ellipse(0, 0, soleWidth / 2, soleHeight / 2, 0, 0, Math.PI * 2);
+      handCtx.fill();
+
+      // Внутренняя тёмная окантовка — для сходства со стелькой
+      handCtx.shadowBlur = 0;
+      handCtx.strokeStyle = 'rgba(60,60,70,0.55)';
+      handCtx.lineWidth = 2;
+      handCtx.beginPath();
+      handCtx.ellipse(0, 0, soleWidth / 2 - 3, soleHeight / 2 - 3, 0, 0, Math.PI * 2);
+      handCtx.stroke();
+
+      // Если рука сжата — стелька подсвечивается ярче и появляется точка активации
+      if (data.isSqueezed) {
+        handCtx.shadowColor = '#44ffaa';
+        handCtx.shadowBlur = 30;
+        handCtx.fillStyle = 'rgba(68,255,170,0.35)';
+        handCtx.beginPath();
+        handCtx.ellipse(0, 0, soleWidth / 2 + 6, soleHeight / 2 + 6, 0, 0, Math.PI * 2);
+        handCtx.fill();
+
+        // Центральная точка — "триггер"
+        handCtx.shadowBlur = 0;
+        handCtx.fillStyle = '#44ffaa';
+        handCtx.beginPath();
+        handCtx.arc(0, 0, 6, 0, Math.PI * 2);
+        handCtx.fill();
+      }
+
+      handCtx.restore();
       handCtx.shadowBlur = 0;
     }
   }
 
   // ============ РУКИ В МИРЕ ============
-  var HAND_DIST = 1.5;
+  var HAND_DIST = 1.8;
   function getHandWorldPos(h) {
     var ndcX = h.x * 2 - 1;
     var ndcY = -(h.y * 2 - 1);
@@ -1187,26 +1256,11 @@
     return camera.position.clone().add(dir.multiplyScalar(HAND_DIST));
   }
 
-  // Обновляем контроллеры (серые стельки) — они привязаны к рукам
-  function updateControllers() {
-    for (var i = 0; i < controllers.length; i++) {
-      var ctrl = controllers[i];
-      if (i < handData.length && mode === 'game') {
-        var pos = getHandWorldPos(handData[i]);
-        ctrl.group.position.copy(pos);
-        ctrl.group.visible = true;
-        // Поворачиваем к камере
-        ctrl.group.lookAt(camera.position);
-      } else {
-        ctrl.group.visible = false;
-      }
-    }
-  }
-
   // ============ РЕЖИМ ============
   var mode = 'menu';
   var running = false;
 
+  // ============ ПОДСВЕТКА КНОПОК ============
   function updateButtonHover() {
     if (!handData.length) {
       playBtnMat.color.setHex(0x44ff88);
@@ -1256,63 +1310,49 @@
     showToast('Возврат в меню', 1500);
   }
 
-  // ================================================================
-  // ХВАТАНИЕ ПРЕДМЕТОВ + КОЛЛИЗИЯ СО СТОЛОМ
-  // ================================================================
-  var heldBy = new Map(); // mesh -> handIndex
-
-  // Проверка: находится ли предмет над столешницей?
-  function isOverDesk(pos) {
-    var relX = pos.x - DESK_X;
-    var relZ = pos.z - DESK_Z;
-    return Math.abs(relX) < DESK_WIDTH / 2 && Math.abs(relZ) < DESK_DEPTH / 2;
-  }
+  // ============ ХВАТАНИЕ (только при сжатой руке-стельке) ============
+  var heldBy = new Map();  // mesh -> handIndex
 
   function updateGrab() {
-    if (mode !== 'game') { heldBy.clear(); return; }
+    if (mode !== 'game') return;
     if (!handData.length) { heldBy.clear(); return; }
 
     var handWorlds = handData.map(function(h) { return getHandWorldPos(h); });
 
-    // Найти, чем занята каждая рука
-    var handBusy = [false, false];
+    for (var gi = 0; gi < grabbables.length; gi++) {
+      var item = grabbables[gi];
+      var mesh = item.mesh;
 
-    // Обновить уже удерживаемые
-    grabbables.forEach(function(item) {
-      if (heldBy.has(item.mesh)) {
-        var hi = heldBy.get(item.mesh);
-        if (hi < handWorlds.length) {
-          handBusy[hi] = true;
-        } else {
-          heldBy.delete(item.mesh);
+      // Уже держится?
+      var holderIdx = -1;
+      heldBy.forEach(function(v, k) { if (k === mesh) holderIdx = v; });
+
+      if (holderIdx >= 0 && holderIdx < handWorlds.length) {
+        var hand = handData[holderIdx];
+        var target = handWorlds[holderIdx].clone();
+        mesh.position.lerp(target, 0.3);
+
+        // Отпускание: рука разжалась ИЛИ слишком далеко
+        if (!hand.isSqueezed || mesh.position.distanceTo(target) > 0.6) {
+          heldBy.delete(mesh);
         }
+        continue;
       }
-    });
 
-    // Двигать удерживаемые за руками
-    grabbables.forEach(function(item) {
-      if (heldBy.has(item.mesh)) {
-        var hi = heldBy.get(item.mesh);
-        var target = handWorlds[hi].clone();
-        // немного впереди руки, чтобы предмет было видно
-        item.mesh.position.lerp(target, 0.35);
-      }
-    });
+      // Хватание: рука СЖАТА и близко
+      for (var hi = 0; hi < handWorlds.length; hi++) {
+        var hand = handData[hi];
+        if (!hand.isSqueezed) continue;  // хватает только сжатая рука
 
-    // Проверить новое хватание
-    for (var hi = 0; hi < handWorlds.length; hi++) {
-      if (handBusy[hi]) continue;
-      var hw = handWorlds[hi];
-      var best = null, bestD = 0.35;
-      for (var gi = 0; gi < grabbables.length; gi++) {
-        var item = grabbables[gi];
-        if (heldBy.has(item.mesh)) continue;
-        var d = item.mesh.position.distanceTo(hw);
-        if (d < bestD) { bestD = d; best = item; }
-      }
-      if (best) {
-        heldBy.set(best.mesh, hi);
-        handBusy[hi] = true;
+        var hw = handWorlds[hi];
+        var d = mesh.position.distanceTo(hw);
+        if (d < 0.35) {
+          var busy = false;
+          heldBy.forEach(function(v) { if (v === hi) busy = true; });
+          if (busy) continue;
+          heldBy.set(mesh, hi);
+          break;
+        }
       }
     }
 
@@ -1358,29 +1398,31 @@
     }
   }
 
-  // ============ ГРАВИТАЦИЯ С КОЛЛИЗИЕЙ ============
+  // ============ ГРАВИТАЦИЯ (с коллизией стола) ============
   function updateGravity(dt) {
     if (mode !== 'game') return;
     for (var i = 0; i < grabbables.length; i++) {
-      var item = grabbables[i];
-      var mesh = item.mesh;
+      var mesh = grabbables[i].mesh;
       if (heldBy.has(mesh)) continue;
 
-      var r = item.radius || 0.1;
-      var floorY = r + 0.01;       // на полу
-      var deskY = DESK_WORLD_TOP_Y + r; // на столе
+      var x = mesh.position.x;
+      var z = mesh.position.z;
+      var y = mesh.position.y;
 
-      // Куда падать?
-      var restY = floorY;
-      if (isOverDesk(mesh.position) && mesh.position.y > DESK_WORLD_TOP_Y - 0.2) {
-        restY = deskY;
+      // Если предмет НАД столешницей — он не может упасть ниже DESK_TOP_Y
+      var minY;
+      if (isOverDesk(x, z)) {
+        minY = DESK_TOP_Y;  // стоит на столе
+      } else {
+        minY = 0.15;        // лежит на полу
       }
 
-      if (mesh.position.y > restY) {
-        mesh.position.y -= dt * 4; // скорость падения
-        if (mesh.position.y < restY) {
-          mesh.position.y = restY;
-        }
+      if (y > minY) {
+        mesh.position.y -= dt * 2.5;
+        if (mesh.position.y < minY) mesh.position.y = minY;
+      } else if (y < minY - 0.01) {
+        // Если предмет оказался ниже положенного (например, выпал за пределы стола)
+        // ничего не делаем — пусть падает до пола
       }
     }
   }
@@ -1410,7 +1452,6 @@
       updateButtonHover();
       updateGrab();
       updateGravity(dt);
-      updateControllers();
     }
 
     handDrawAccum += dt;
@@ -1434,22 +1475,50 @@
   window.addEventListener('orientationchange', function() { setTimeout(resize, 200); });
   resize();
 
-  // ================================================================
-  // СТАРТ: КНОПКА "РАЗРЕШИТЬ КАМЕРУ" ПОСЛЕ ПРЕЛОАДЕРА
-  // ================================================================
-  preReady.addEventListener('click', function() {
-    preloader.classList.add('hidden');
-    setTimeout(function() { preloader.style.display = 'none'; }, 700);
-    // Показываем кнопку разрешения камеры
-    permBtn.classList.remove('hidden');
-  });
-
-  permBtn.addEventListener('click', function() {
-    if (permHandled) return;
-    permHandled = true;
-    permBtn.disabled = true;
-    permBtn.textContent = 'Запуск...';
+  // ============ СТАРТ ============
+  startBtn.addEventListener('click', function() {
+    startBtn.disabled = true;
+    startBtn.textContent = 'Запуск...';
     statusEl.textContent = 'Запускаем камеру...';
     goFullscreen();
 
-    if (!navigator.mediaDevices || !navigator.mediaDev
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      startBtn.disabled = false;
+      startBtn.textContent = '❌ Нет камеры';
+      return;
+    }
+
+    navigator.mediaDevices.getUserMedia({
+      audio: false,
+      video: {
+        facingMode: { ideal: 'environment' },  // ← ЗАДНЯЯ КАМЕРА
+        width: { ideal: 640 },
+        height: { ideal: 480 }
+      }
+    }).then(function(stream) {
+      videoEl.srcObject = stream;
+      return videoEl.play();
+    }).then(function() {
+      // Скрываем кнопку старта полностью
+      startBtn.style.display = 'none';
+      running = true;
+      lastT = performance.now() / 1000;
+      mpBar.classList.remove('hidden');
+      mpStatus.textContent = 'Загрузка рук...';
+      mpFill.style.width = '0%';
+      mpPct.textContent = '0%';
+      statusEl.textContent = 'Тапни по кнопке "ИГРАТЬ" или сожми руку рядом с предметом';
+      initHands();
+    }).catch(function(err) {
+      console.error(err);
+      startBtn.disabled = false;
+      startBtn.textContent = '❌ Повторить';
+      statusEl.textContent = '❌ Камера: ' + (err.name || err.message || 'ошибка');
+    });
+  });
+
+  animate();
+})();
+</script>
+</body>
+</html>
