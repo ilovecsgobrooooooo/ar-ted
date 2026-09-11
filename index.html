@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
 <title>VR Cube Runner</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -15,6 +16,7 @@
     font-family: -apple-system, BlinkMacSystemFont, sans-serif;
     -webkit-user-select: none; user-select: none;
     touch-action: none;
+    position: fixed;
   }
   #three-canvas {
     position: fixed; inset: 0;
@@ -28,7 +30,6 @@
     z-index: 2;
     pointer-events: none;
   }
-  /* Слой для свайпа камеры */
   #touch-layer {
     position: fixed; inset: 0;
     z-index: 5;
@@ -59,22 +60,25 @@
     top: max(12px, env(safe-area-inset-top));
     right: max(12px, env(safe-area-inset-right));
     z-index: 150;
-    width: 44px; height: 44px;
+    width: 48px; height: 48px;
     border-radius: 50%;
-    background: rgba(0,0,0,0.55);
+    background: rgba(0,0,0,0.6);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
-    border: 1px solid rgba(255,255,255,0.25);
+    border: 1px solid rgba(255,255,255,0.3);
     color: #fff;
-    font-size: 20px;
+    font-size: 22px;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
     -webkit-tap-highlight-color: transparent;
     transition: transform 0.15s;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: manipulation;
   }
-  #fs-btn:active { transform: scale(0.9); }
+  #fs-btn:active { transform: scale(0.9); background: rgba(100,150,255,0.5); }
 
   #mp-bar {
     position: fixed;
@@ -148,6 +152,33 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    transition: opacity 0.3s;
+  }
+
+  /* Тост для подсказки о fullscreen на iOS */
+  #toast {
+    position: fixed;
+    bottom: max(60px, calc(env(safe-area-inset-bottom) + 50px));
+    left: 50%; transform: translateX(-50%) translateY(20px);
+    z-index: 300;
+    background: rgba(0,0,0,0.85);
+    color: #fff;
+    padding: 12px 20px;
+    border-radius: 16px;
+    font-size: 13px;
+    max-width: 85vw;
+    text-align: center;
+    line-height: 1.4;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s, transform 0.3s;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.2);
+  }
+  #toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
   }
 </style>
 </head>
@@ -172,6 +203,8 @@
   <div id="mp-track"><div id="mp-fill"></div></div>
 </div>
 
+<div id="toast"></div>
+
 <div id="status">Нажми «Старт» чтобы войти</div>
 <button id="start-btn">▶ ВОЙТИ В VR</button>
 
@@ -195,13 +228,26 @@
   var mpFill     = document.getElementById('mp-fill');
   var mpPct      = document.getElementById('mp-pct');
   var mpStatus   = document.getElementById('mp-status');
+  var toastEl    = document.getElementById('toast');
 
   if (typeof THREE === 'undefined') {
     statusEl.textContent = '❌ Three.js не загрузился';
     return;
   }
 
-  // ================== THREE.JS ==================
+  // ================ ТОСТ ================
+  var toastTimer = null;
+  function showToast(text, duration) {
+    duration = duration || 3000;
+    toastEl.textContent = text;
+    toastEl.classList.add('show');
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(function() {
+      toastEl.classList.remove('show');
+    }, duration);
+  }
+
+  // ================ THREE.JS ================
   var scene = new THREE.Scene();
   var camera = new THREE.PerspectiveCamera(80, window.innerWidth / window.innerHeight, 0.1, 1000);
   camera.position.set(0, 1.6, 0);
@@ -216,7 +262,7 @@
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.setClearColor(0x1a1525, 1);
 
-  // ================== ПАНОРАМА-ФОН ==================
+  // ================ ПАНОРАМА ================
   var panoGeo = new THREE.SphereGeometry(500, 60, 40);
   panoGeo.scale(-1, 1, 1);
   var panoMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
@@ -262,7 +308,7 @@
     function() {}
   );
 
-  // ================== МЕНЮ-ПАНЕЛЬ ==================
+  // ================ МЕНЮ-ПАНЕЛЬ ================
   var menuGroup = new THREE.Group();
   menuGroup.position.set(0, 1.5, -2.5);
   scene.add(menuGroup);
@@ -321,7 +367,7 @@
     menuGroup.add(lblMesh);
   }
 
-  // ================== СВЕТ ==================
+  // ================ СВЕТ ================
   scene.add(new THREE.AmbientLight(0xffffff, 0.9));
   var dl = new THREE.DirectionalLight(0xffffff, 1.0);
   dl.position.set(2, 5, 3);
@@ -329,7 +375,7 @@
   var pl1 = new THREE.PointLight(0xff44aa, 1.0, 20); pl1.position.set(3, 2, -3); scene.add(pl1);
   var pl2 = new THREE.PointLight(0x44aaff, 1.0, 20); pl2.position.set(-3, 2, -3); scene.add(pl2);
 
-  // ================== КУБЫ ==================
+  // ================ КУБЫ ================
   var CUBE_COLORS = [0xff3366, 0x33ff99, 0x33aaff, 0xffaa33, 0xaa44ff, 0xff44aa, 0x44ffaa, 0xff6633];
   var cubes = [];
   var CUBE_POOL = 30;
@@ -348,7 +394,7 @@
     cubes.push(cube);
   }
 
-  // ================== ЧАСТИЦЫ ==================
+  // ================ ЧАСТИЦЫ ================
   var PARTICLE_COUNT = 150;
   var particleGeo = new THREE.BufferGeometry();
   var pPos = new Float32Array(PARTICLE_COUNT * 3);
@@ -381,10 +427,8 @@
     particleGeo.attributes.color.needsUpdate = true;
   }
 
-  // ================== СВАЙП ВМЕСТО ГИРОСКОПА ==================
-  // Тащишь пальцем по экрану → камера поворачивается.
-  // Отпустил → камера останавливается на месте.
-  var SWIPE_SENS = 0.005;  // ← если надо быстрее — 0.008, медленнее — 0.003
+  // ================ СВАЙП ================
+  var SWIPE_SENS = 0.005;
   var targetYaw = 0, targetPitch = 0;
   var currentYaw = 0, currentPitch = 0;
 
@@ -413,7 +457,6 @@
         lastTouchY = t.clientY;
         targetYaw   -= dx * SWIPE_SENS;
         targetPitch -= dy * SWIPE_SENS;
-        // Ограничим pitch, чтобы не переворачивалось
         if (targetPitch >  Math.PI / 3) targetPitch =  Math.PI / 3;
         if (targetPitch < -Math.PI / 3) targetPitch = -Math.PI / 3;
         break;
@@ -425,7 +468,7 @@
   function endTouch(e) {
     isTouching = false;
     touchId = null;
-    e.preventDefault();
+    if (e) e.preventDefault();
   }
   touchLayer.addEventListener('touchend', endTouch, { passive: false });
   touchLayer.addEventListener('touchcancel', endTouch, { passive: false });
@@ -451,43 +494,85 @@
   touchLayer.addEventListener('mouseup', function() { mouseDown = false; });
   touchLayer.addEventListener('mouseleave', function() { mouseDown = false; });
 
-  // ================== КНОПКА ПОЛНЫЙ ЭКРАН ==================
-  function toggleFullscreen() {
+  // ================ FULLSCREEN ================
+  // Определяем поддержку
+  var fsSupported = !!(
+    document.documentElement.requestFullscreen ||
+    document.documentElement.webkitRequestFullscreen ||
+    document.documentElement.mozRequestFullScreen ||
+    document.documentElement.msRequestFullscreen
+  );
+
+  // iOS Safari НЕ поддерживает requestFullscreen для HTML
+  var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+  var isStandalone = window.navigator.standalone === true ||
+                     window.matchMedia('(display-mode: standalone)').matches;
+
+  function goFullscreen() {
     var el = document.documentElement;
-    if (!document.fullscreenElement && !document.webkitFullscreenElement) {
-      if (el.requestFullscreen) {
-        el.requestFullscreen().catch(function(){});
-      } else if (el.webkitRequestFullscreen) {
-        el.webkitRequestFullscreen();
-      } else if (el.webkitEnterFullscreen) {
-        el.webkitEnterFullscreen();
+
+    if (isIOS) {
+      // iOS не поддерживает — показываем подсказку
+      if (isStandalone) {
+        showToast('Уже в полноэкранном режиме ✓', 2000);
+      } else {
+        showToast('На iPhone: нажми «Поделиться» → «На экран "Домой"», затем открой с домашнего экрана для полного экрана', 6000);
       }
-      // Попытка заблокировать ландшафт (на iOS не работает)
-      if (screen.orientation && screen.orientation.lock) {
-        screen.orientation.lock('landscape').catch(function(){});
+      return;
+    }
+
+    if (fsSupported) {
+      var fsEl = document.fullscreenElement || document.webkitFullscreenElement;
+      if (!fsEl) {
+        var p;
+        if (el.requestFullscreen) p = el.requestFullscreen();
+        else if (el.webkitRequestFullscreen) p = el.webkitRequestFullscreen();
+        else if (el.mozRequestFullScreen) p = el.mozRequestFullScreen();
+        else if (el.msRequestFullscreen) p = el.msRequestFullscreen();
+        if (p && p.catch) p.catch(function(err) {
+          console.log('Fullscreen error:', err);
+          showToast('Не удалось войти в полный экран', 2000);
+        });
+        // Пробуем ландшафт
+        if (screen.orientation && screen.orientation.lock) {
+          screen.orientation.lock('landscape').catch(function(){});
+        }
+      } else {
+        if (document.exitFullscreen) document.exitFullscreen();
+        else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+        else if (document.mozCancelFullScreen) document.mozCancelFullScreen();
+        else if (document.msExitFullscreen) document.msExitFullscreen();
       }
-      fsBtn.textContent = '⛶';
     } else {
-      if (document.exitFullscreen) {
-        document.exitFullscreen().catch(function(){});
-      } else if (document.webkitExitFullscreen) {
-        document.webkitExitFullscreen();
-      }
-      fsBtn.textContent = '⛶';
+      showToast('Полный экран не поддерживается браузером', 2000);
     }
   }
 
-  fsBtn.addEventListener('click', function(e) {
-    e.stopPropagation();
-    toggleFullscreen();
-  });
-  fsBtn.addEventListener('touchend', function(e) {
-    e.stopPropagation();
-    e.preventDefault();
-    toggleFullscreen();
-  }, { passive: false });
+  // Обработчик кнопки — и click и touchend для надёжности на мобильных
+  var fsBtnPressed = false;
+  function handleFsPress(e) {
+    if (e) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
+    if (fsBtnPressed) return;
+    fsBtnPressed = true;
+    setTimeout(function() { fsBtnPressed = false; }, 300);
+    goFullscreen();
+  }
+  fsBtn.addEventListener('click', handleFsPress);
+  fsBtn.addEventListener('touchend', handleFsPress, { passive: false });
 
-  // ================== MEDIAPIPE ==================
+  // Отслеживаем состояние fullscreen для иконки
+  function updateFsIcon() {
+    var fsEl = document.fullscreenElement || document.webkitFullscreenElement;
+    fsBtn.textContent = fsEl ? '⛶' : '⛶';
+    // Можно менять на другой символ: fsEl ? '⤡' : '⛶'
+  }
+  document.addEventListener('fullscreenchange', updateFsIcon);
+  document.addEventListener('webkitfullscreenchange', updateFsIcon);
+
+  // ================ MEDIAPIPE ================
   var handsReady = false;
   var handData = [];
   var handsInstance = null;
@@ -516,7 +601,7 @@
         modelComplexity: 0,
         minDetectionConfidence: 0.5,
         minTrackingConfidence: 0.5,
-        selfieMode: true           // ← передняя камера — зеркалим
+        selfieMode: true           // ← передняя камера, MediaPipe сам зеркалит
       });
       handsInstance.onResults(function(results) {
         if (results.multiHandLandmarks && results.multiHandLandmarks.length) {
@@ -598,7 +683,10 @@
     loop();
   }
 
-  // ================== СКЕЛЕТ РУК ==================
+  // ================ СКЕЛЕТ РУК ================
+  // ВАЖНО: MediaPipe с selfieMode:true уже зеркалит координаты так,
+  // что "правая рука" = правая сторона экрана.
+  // Мы НЕ зеркалим дополнительно — рисуем как есть.
   var CONNECTIONS = [
     [0,1],[1,2],[2,3],[3,4],
     [0,5],[5,6],[6,7],[7,8],
@@ -618,8 +706,8 @@
       var lm = handData[hi].landmarks;
       var color = HAND_COLORS[hi % HAND_COLORS.length];
 
-      // Передняя камера — зеркалим X
-      function px(l) { return (1 - l.x) * W; }
+      // НЕ зеркалим — MediaPipe уже отдал правильные координаты
+      function px(l) { return l.x * W; }
       function py(l) { return l.y * H; }
 
       handCtx.strokeStyle = color;
@@ -663,7 +751,7 @@
     }
   }
 
-  // ================== ИГРА ==================
+  // ================ ИГРА ================
   var running = false;
   var score = 0, combo = 1, comboTimer = 0;
   var spawnTimer = 0, spawnInterval = 1.2, gameSpeed = 4, elapsed = 0;
@@ -716,7 +804,8 @@
     if (!handData.length) return;
 
     var handWorlds = handData.map(function(h) {
-      var nx = 1 - h.x;         // зеркалим (передняя камера)
+      // НЕ зеркалим — MediaPipe уже отдал правильные координаты
+      var nx = h.x;
       var ny = h.y;
       var ndcX = nx * 2 - 1;
       var ndcY = -(ny * 2 - 1);
@@ -745,7 +834,7 @@
     }
   }
 
-  // ================== АНИМАЦИЯ ==================
+  // ================ АНИМАЦИЯ ================
   var lastT = performance.now() / 1000;
   var handDrawAccum = 0;
   var HAND_DRAW_INTERVAL = 1/30;
@@ -759,7 +848,6 @@
     if (dt > 0.1) dt = 0.1;
     if (dt < 0) dt = 0;
 
-    // Плавное сглаживание поворота
     currentYaw   += (targetYaw   - currentYaw)   * Math.min(1, dt * 12);
     currentPitch += (targetPitch - currentPitch) * Math.min(1, dt * 12);
 
@@ -832,7 +920,7 @@
     renderer.render(scene, camera);
   }
 
-  // ================== РАЗМЕРЫ ==================
+  // ================ РАЗМЕРЫ ================
   function resize() {
     var w = window.innerWidth, h = window.innerHeight;
     camera.aspect = w / h;
@@ -845,14 +933,14 @@
   window.addEventListener('orientationchange', function() { setTimeout(resize, 200); });
   resize();
 
-  // ================== СТАРТ ==================
+  // ================ СТАРТ ================
   startBtn.addEventListener('click', function() {
     startBtn.disabled = true;
     startBtn.textContent = 'Запуск...';
     statusEl.textContent = 'Запускаем камеру...';
 
-    // Автоматически пробуем fullscreen при старте
-    toggleFullscreen();
+    // Пробуем fullscreen
+    goFullscreen();
 
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       startBtn.disabled = false;
@@ -863,7 +951,7 @@
     navigator.mediaDevices.getUserMedia({
       audio: false,
       video: {
-        facingMode: 'user',       // ← передняя камера
+        facingMode: 'user',
         width: { ideal: 640 },
         height: { ideal: 480 }
       }
@@ -890,6 +978,15 @@
       statusEl.textContent = '❌ Камера: ' + (err.name || err.message || 'ошибка');
     });
   });
+
+  // Показываем один раз подсказку про iOS fullscreen
+  if (isIOS && !isStandalone) {
+    setTimeout(function() {
+      if (!running) {
+        showToast('Совет: добавь на домашний экран для полного экрана', 4000);
+      }
+    }, 2000);
+  }
 
   animate();
 
