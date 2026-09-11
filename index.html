@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AR iOS Test</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #000; font-family: -apple-system, sans-serif; touch-action: none; }
+        #info {
+            position: fixed; top: 10px; left: 10px; right: 10px;
+            color: #0f0; background: rgba(0,0,0,0.8);
+            padding: 10px; border-radius: 8px; font-size: 13px;
+            z-index: 100; pointer-events: none;
+        }
+        #startBtn {
+            position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+            padding: 18px 50px; background: #0f0; color: #000;
+            border: none; border-radius: 40px; font-size: 20px;
+            font-weight: bold; z-index: 200;
+            box-shadow: 0 0 30px #0f0;
+        }
+        #startBtn:active { transform: translateX(-50%) scale(0.95); }
+        #status {
+            position: fixed; bottom: 10px; left: 10px; right: 10px;
+            color: #ff0; font-size: 11px; text-align: center;
+            z-index: 100; pointer-events: none; background: rgba(0,0,0,0.7);
+            padding: 5px; border-radius: 5px;
+        }
+        #handCanvas {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 50;
+        }
+        #video {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            object-fit: cover; z-index: 1;
+        }
+    </style>
+</head>
+<body>
+
+<div id="info">
+    📱 AR TEST iOS<br>
+    <span style="font-size: 11px; color: #888;">
+        Камера → Реальный мир<br>
+        Гироскоп → Поворот<br>
+        Руки → MediaPipe
+    </span>
+</div>
+
+<video id="video" playsinline autoplay muted></video>
+<canvas id="handCanvas"></canvas>
+<div id="status">Готов к старту</div>
+<button id="startBtn">📷 ЗАПУСТИТЬ</button>
+
+<!-- CDN MediaPipe Hands (без модулей) -->
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+
+<script>
+(function() {
+    'use strict';
+
+    var video = document.getElementById('video');
+    var canvas = document.getElementById('handCanvas');
+    var ctx = canvas.getContext('2d');
+    var statusEl = document.getElementById('status');
+    var startBtn = document.getElementById('startBtn');
+
+    function resizeCanvas() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    }
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+
+    function setStatus(text) {
+        statusEl.textContent = text;
+        console.log('[AR]', text);
+    }
+
+    // ==========================================
+    // КНОПКА СТАРТА
+    // ==========================================
+    startBtn.addEventListener('click', function() {
+        setStatus('Запуск камеры...');
+        startCamera();
+    });
+
+    // ==========================================
+    // ЗАПУСК КАМЕРЫ
+    // ==========================================
+    function startCamera() {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            setStatus('❌ getUserMedia не поддерживается. Нужен HTTPS!');
+            alert('ОТКРОЙ САЙТ ПО HTTPS! file:// и http:// НЕ РАБОТАЮТ!');
+            return;
+        }
+
+        var constraints = {
+            video: {
+                facingMode: 'environment',
+                width: { ideal: 1280 },
+                height: { ideal: 720 }
+            },
+            audio: false
+        };
+
+        navigator.mediaDevices.getUserMedia(constraints)
+            .then(function(stream) {
+                video.srcObject = stream;
+                video.setAttribute('playsinline', '');
+                video.setAttribute('autoplay', '');
+                video.setAttribute('muted', '');
+                video.muted = true;
+
+                video.onloadedmetadata = function() {
+                    video.play();
+                    setStatus('✅ Камера активна: ' + video.videoWidth + 'x' + video.videoHeight);
+                    startHandTracking();
+                    startGyroscope();
+                    startVRCubes();
+                };
+            })
+            .catch(function(err) {
+                setStatus('❌ Ошибка камеры: ' + err.name + ' — ' + err.message);
+                alert('ОШИБКА КАМЕРЫ:\n' + err.name + '\n' + err.message +
+                      '\n\nПРОВЕРЬ:\n1. Открыт по HTTPS?\n2. Разрешил камеру в настройках Safari?');
+            });
+    }
+
+    // ==========================================
+    // MEDIAPIPE HANDS
+    // ==========================================
+    function startHandTracking() {
+        setStatus('🖐️ Загрузка MediaPipe Hands...');
+
+        if (typeof Hands === 'undefined') {
+            setStatus('❌ MediaPipe Hands не загрузился');
+            return;
+        }
+
+        var hands = new Hands({
+            locateFile: function(file) {
+                return 'https://cdn.jsdelivr.net/npm/@mediapipe/hands/' + file;
+            }
+        });
+
+        hands.setOptions({
+            maxNumHands: 2,
+            modelComplexity: 0,
+            minDetectionConfidence: 0.5,
+            minTrackingConfidence: 0.5
+        });
+
+        hands.onResults(function(results) {
+            onHandResults(results);
+        });
+
+        if (typeof Camera === 'undefined') {
+            setStatus('❌ MediaPipe Camera Utils не загрузился');
+            return;
+        }
+
+        var camera = new Camera(video, {
+            onFrame: async function() {
+                await hands.send({ image: video });
+            },
+            width: 1280,
+            height: 720
+        });
+
+        camera.start();
+        setStatus('✅ MediaPipe запущен');
+    }
+
+    function onHandResults(results) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+            for (var i = 0; i < results.multiHandLandmarks.length; i++) {
+                drawHand(results.multiHandLandmarks[i]);
+            }
+        }
+    }
+
+    function drawHand(landmarks) {
+        var connections = [
+            [0,1],[1,2],[2,3],[3,4],
+            [0,5],[5,6],[6,7],[7,8],
+            [5,9],[9,10],[10,11],[11,12],
+            [9,13],[13,14],[14,15],[15,16],
+            [13,17],[17,18],[18,19],[19,20],
+            [0,17]
+        ];
+
+        var w = canvas.width;
+        var h = canvas.height;
+
+        ctx.strokeStyle = '#00ffff';
+        ctx.lineWidth = 3;
+        ctx.shadowColor = '#00ffff';
+        ctx.shadowBlur = 10;
+
+        for (var i = 0; i < connections.length; i++) {
+            var p1 = landmarks[connections[i][0]];
+            var p2 = landmarks[connections[i][1]];
+            ctx.beginPath();
+            ctx.moveTo(p1.x * w, p1.y * h);
+            ctx.lineTo(p2.x * w, p2.y * h);
+            ctx.stroke();
+        }
+
+        ctx.fillStyle = '#ff00ff';
+        ctx.shadowColor = '#ff00ff';
+        ctx.shadowBlur = 15;
+
+        for (var j = 0; j < landmarks.length; j++) {
+            var p = landmarks[j];
+            ctx.beginPath();
+            ctx.arc(p.x * w, p.y * h, 6, 0, 2 * Math.PI);
+            ctx.fill();
+        }
+
+        ctx.shadowBlur = 0;
+    }
+
+    // ==========================================
+    // ГИРОСКОП
+    // ==========================================
+    var gyroData = { alpha: 0, beta: 0, gamma: 0 };
+
+    function startGyroscope() {
+        setStatus('📱 Запрос гироскопа...');
+
+        if (typeof DeviceOrientationEvent === 'undefined') {
+            setStatus('❌ Гироскоп не поддерживается');
+            return;
+        }
+
+        if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+            DeviceOrientationEvent.requestPermission()
+                .then(function(permission) {
+                    if (permission === 'granted') {
+                        window.addEventListener('deviceorientation', handleOrientation, true);
+                        setStatus('✅ Гироскоп активен');
+                    } else {
+                        setStatus('❌ Гироскоп отклонён');
+                    }
+                })
+                .catch(function(err) {
+                    setStatus('❌ Ошибка гироскопа: ' + err.message);
+                });
+        } else {
+            window.addEventListener('deviceorientation', handleOrientation, true);
+            setStatus('✅ Гироскоп активен (без запроса)');
+        }
+    }
+
+    function handleOrientation(event) {
+        gyroData.alpha = event.alpha || 0;
+        gyroData.beta = event.beta || 0;
+        gyroData.gamma = event.gamma || 0;
+
+        // Применяем к CSS-трансформации для виртуальных кубов
+        applyGyroToCubes();
+    }
+
+    // ==========================================
+    // ВИРТУАЛЬНЫЕ КУБЫ ПОВЕРХ КАМЕРЫ
+    // ==========================================
+    var cubes = [];
+    var cubeContainer = null;
+
+    function startVRCubes() {
+        // Создаём DOM-контейнер для виртуальных кубов поверх видео
+        cubeContainer = document.createElement('div');
+        cubeContainer.id = 'cubeContainer';
+        cubeContainer.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:40;';
+        document.body.appendChild(cubeContainer);
+
+        var cubeColors = ['#ff006e', '#8338ec', '#3a86ff', '#06ffa5', '#ffbe0b'];
+        var emojis = ['🎁', '💎', '🏆', '🔥', '⭐'];
+
+        for (var i = 0; i < 5; i++) {
+            var cube = document.createElement('div');
+            cube.style.cssText =
+                'position:absolute;' +
+                'width:60px;height:60px;' +
+                'background:' + cubeColors[i] + ';' +
+                'border-radius:12px;' +
+                'display:flex;align-items:center;justify-content:center;' +
+                'font-size:32px;' +
+                'box-shadow:0 0 40px ' + cubeColors[i] + ';' +
+                'transition:transform 0.1s ease-out;' +
+                'will-change:transform;';
+            cube.textContent = emojis[i];
+            cube.dataset.baseX = (Math.random() - 0.5) * 60;
+            cube.dataset.baseY = (Math.random() - 0.5) * 40;
+            cube.dataset.offset = i;
+            cubeContainer.appendChild(cube);
+            cubes.push(cube);
+        }
+
+        setStatus('✅ Кубы созданы');
+    }
+
+    function applyGyroToCubes() {
+        if (!cubes.length) return;
+
+        var betaRad = (gyroData.beta - 90) * Math.PI / 180;
+        var alphaRad = gyroData.alpha * Math.PI / 180;
+        var gammaRad = gyroData.gamma * Math.PI / 180;
+
+        for (var i = 0; i < cubes.length; i++) {
+            var cube = cubes[i];
+            var baseX = parseFloat(cube.dataset.baseX);
+            var baseY = parseFloat(cube.dataset.baseY);
+
+            // Смещение в зависимости от гироскопа
+            var shiftX = baseX - gammaRad * 300 + alphaRad * 100;
+            var shiftY = baseY + betaRad * 200;
+
+            cube.style.transform =
+                'translate(' + shiftX + 'px, ' + shiftY + 'px)' +
+                ' rotateX(' + (betaRad * 100) + 'deg)' +
+                ' rotateY(' + (alphaRad * 100) + 'deg)';
+        }
+    }
+
+    // ==========================================
+    // КНОПКА TEST - ПРОВЕРКА HTTPS
+    // ==========================================
+    if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
+        setStatus('⚠️ НЕ HTTPS! Камера НЕ БУДЕТ РАБОТАТЬ! Открой через https://');
+        startBtn.style.background = '#f00';
+        startBtn.textContent = '⚠️ НУЖЕН HTTPS';
+    }
+
+    console.log('[AR] Протокол:', location.protocol);
+    console.log('[AR] getUserMedia:', !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia));
+    console.log('[AR] DeviceOrientationEvent:', typeof DeviceOrientationEvent !== 'undefined');
+    console.log('[AR] MediaPipe Hands:', typeof Hands !== 'undefined');
+
+})();
+</script>
+
+</body>
+</html>
