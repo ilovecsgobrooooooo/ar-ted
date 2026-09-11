@@ -28,6 +28,12 @@
     z-index: 2;
     pointer-events: none;
   }
+  /* Слой для свайпа камеры */
+  #touch-layer {
+    position: fixed; inset: 0;
+    z-index: 5;
+    touch-action: none;
+  }
   #hud {
     position: fixed;
     top: max(12px, env(safe-area-inset-top));
@@ -47,6 +53,28 @@
   }
   #score { color: #44ffaa; }
   #combo { color: #ffdd00; }
+
+  #fs-btn {
+    position: fixed;
+    top: max(12px, env(safe-area-inset-top));
+    right: max(12px, env(safe-area-inset-right));
+    z-index: 150;
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    background: rgba(0,0,0,0.55);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.25);
+    color: #fff;
+    font-size: 20px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 0.15s;
+  }
+  #fs-btn:active { transform: scale(0.9); }
 
   #mp-bar {
     position: fixed;
@@ -121,45 +149,20 @@
     overflow: hidden;
     text-overflow: ellipsis;
   }
-
-  /* Подсказка "поверни телефон горизонтально" */
-  #rotate-hint {
-    position: fixed; inset: 0;
-    z-index: 150;
-    background: rgba(0,0,0,0.85);
-    display: none;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    color: #fff;
-    text-align: center;
-    padding: 20px;
-  }
-  #rotate-hint.show { display: flex; }
-  #rotate-hint .icon {
-    font-size: 64px;
-    margin-bottom: 20px;
-    animation: rotatePhone 2s ease-in-out infinite;
-  }
-  @keyframes rotatePhone {
-    0%, 100% { transform: rotate(0deg); }
-    50% { transform: rotate(90deg); }
-  }
-  #rotate-hint .text {
-    font-size: 18px; font-weight: 600;
-    max-width: 300px;
-  }
 </style>
 </head>
 <body>
 
 <canvas id="three-canvas"></canvas>
 <canvas id="hand-canvas"></canvas>
+<div id="touch-layer"></div>
 
 <div id="hud">
   <div class="pill">Очки: <span id="score">0</span></div>
   <div class="pill">Комбо: <span id="combo">x1</span></div>
 </div>
+
+<button id="fs-btn" title="На весь экран">⛶</button>
 
 <div id="mp-bar" class="hidden">
   <div id="mp-label">
@@ -167,11 +170,6 @@
     <span class="pct" id="mp-pct">0%</span>
   </div>
   <div id="mp-track"><div id="mp-fill"></div></div>
-</div>
-
-<div id="rotate-hint">
-  <div class="icon">📱</div>
-  <div class="text">Поверни телефон горизонтально<br>чтобы играть в VR</div>
 </div>
 
 <div id="status">Нажми «Старт» чтобы войти</div>
@@ -187,7 +185,9 @@
   var canvas3d   = document.getElementById('three-canvas');
   var canvasHand = document.getElementById('hand-canvas');
   var handCtx    = canvasHand.getContext('2d');
+  var touchLayer = document.getElementById('touch-layer');
   var startBtn   = document.getElementById('start-btn');
+  var fsBtn      = document.getElementById('fs-btn');
   var statusEl   = document.getElementById('status');
   var scoreEl    = document.getElementById('score');
   var comboEl    = document.getElementById('combo');
@@ -195,7 +195,6 @@
   var mpFill     = document.getElementById('mp-fill');
   var mpPct      = document.getElementById('mp-pct');
   var mpStatus   = document.getElementById('mp-status');
-  var rotateHint = document.getElementById('rotate-hint');
 
   if (typeof THREE === 'undefined') {
     statusEl.textContent = '❌ Three.js не загрузился';
@@ -224,7 +223,6 @@
   var pano = new THREE.Mesh(panoGeo, panoMat);
   scene.add(pano);
 
-  // Градиент-закат
   var gradCanvas = document.createElement('canvas');
   gradCanvas.width = 1024; gradCanvas.height = 512;
   var gctx = gradCanvas.getContext('2d');
@@ -383,43 +381,111 @@
     particleGeo.attributes.color.needsUpdate = true;
   }
 
-  // ================== ГИРОСКОП (низкая чувствительность) ==================
-  var GYRO_SENS = 0.35;    // ← было 1.0, стало 0.35 — плавно и без дёрганья
-  var GYRO_PITCH_SENS = 0.4;
-  var gyroBaseYaw = null, gyroBasePitch = null;
-  var targetYaw = 0, targetPitch = 0, targetRoll = 0;
-  var currentYaw = 0, currentPitch = 0, currentRoll = 0;
+  // ================== СВАЙП ВМЕСТО ГИРОСКОПА ==================
+  // Тащишь пальцем по экрану → камера поворачивается.
+  // Отпустил → камера останавливается на месте.
+  var SWIPE_SENS = 0.005;  // ← если надо быстрее — 0.008, медленнее — 0.003
+  var targetYaw = 0, targetPitch = 0;
+  var currentYaw = 0, currentPitch = 0;
 
-  function onOrientation(e) {
-    if (e.alpha === null || e.beta === null) return;
-    if (gyroBaseYaw === null) {
-      gyroBaseYaw = e.alpha;
-      gyroBasePitch = e.beta;
+  var isTouching = false;
+  var lastTouchX = 0, lastTouchY = 0;
+  var touchId = null;
+
+  touchLayer.addEventListener('touchstart', function(e) {
+    if (e.touches.length === 0) return;
+    var t = e.touches[0];
+    isTouching = true;
+    touchId = t.identifier;
+    lastTouchX = t.clientX;
+    lastTouchY = t.clientY;
+    e.preventDefault();
+  }, { passive: false });
+
+  touchLayer.addEventListener('touchmove', function(e) {
+    if (!isTouching) return;
+    for (var i = 0; i < e.touches.length; i++) {
+      var t = e.touches[i];
+      if (t.identifier === touchId) {
+        var dx = t.clientX - lastTouchX;
+        var dy = t.clientY - lastTouchY;
+        lastTouchX = t.clientX;
+        lastTouchY = t.clientY;
+        targetYaw   -= dx * SWIPE_SENS;
+        targetPitch -= dy * SWIPE_SENS;
+        // Ограничим pitch, чтобы не переворачивалось
+        if (targetPitch >  Math.PI / 3) targetPitch =  Math.PI / 3;
+        if (targetPitch < -Math.PI / 3) targetPitch = -Math.PI / 3;
+        break;
+      }
     }
-    var dYaw = e.alpha - gyroBaseYaw;
-    while (dYaw > 180) dYaw -= 360;
-    while (dYaw < -180) dYaw += 360;
-    var dPitch = e.beta - gyroBasePitch;
+    e.preventDefault();
+  }, { passive: false });
 
-    targetYaw   = -dYaw   * Math.PI / 180 * GYRO_SENS;
-    targetPitch = -dPitch * Math.PI / 180 * GYRO_PITCH_SENS;
-    targetRoll  = (e.gamma || 0) * Math.PI / 180 * 0.15;
+  function endTouch(e) {
+    isTouching = false;
+    touchId = null;
+    e.preventDefault();
   }
+  touchLayer.addEventListener('touchend', endTouch, { passive: false });
+  touchLayer.addEventListener('touchcancel', endTouch, { passive: false });
 
-  function enableGyro() {
-    if (typeof DeviceOrientationEvent !== 'undefined' &&
-        typeof DeviceOrientationEvent.requestPermission === 'function') {
-      DeviceOrientationEvent.requestPermission()
-        .then(function(state) {
-          if (state === 'granted') {
-            window.addEventListener('deviceorientation', onOrientation);
-          }
-        })
-        .catch(function() {});
+  // Мышь для десктопа
+  var mouseDown = false;
+  touchLayer.addEventListener('mousedown', function(e) {
+    mouseDown = true;
+    lastTouchX = e.clientX;
+    lastTouchY = e.clientY;
+  });
+  touchLayer.addEventListener('mousemove', function(e) {
+    if (!mouseDown) return;
+    var dx = e.clientX - lastTouchX;
+    var dy = e.clientY - lastTouchY;
+    lastTouchX = e.clientX;
+    lastTouchY = e.clientY;
+    targetYaw   -= dx * SWIPE_SENS;
+    targetPitch -= dy * SWIPE_SENS;
+    if (targetPitch >  Math.PI / 3) targetPitch =  Math.PI / 3;
+    if (targetPitch < -Math.PI / 3) targetPitch = -Math.PI / 3;
+  });
+  touchLayer.addEventListener('mouseup', function() { mouseDown = false; });
+  touchLayer.addEventListener('mouseleave', function() { mouseDown = false; });
+
+  // ================== КНОПКА ПОЛНЫЙ ЭКРАН ==================
+  function toggleFullscreen() {
+    var el = document.documentElement;
+    if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+      if (el.requestFullscreen) {
+        el.requestFullscreen().catch(function(){});
+      } else if (el.webkitRequestFullscreen) {
+        el.webkitRequestFullscreen();
+      } else if (el.webkitEnterFullscreen) {
+        el.webkitEnterFullscreen();
+      }
+      // Попытка заблокировать ландшафт (на iOS не работает)
+      if (screen.orientation && screen.orientation.lock) {
+        screen.orientation.lock('landscape').catch(function(){});
+      }
+      fsBtn.textContent = '⛶';
     } else {
-      window.addEventListener('deviceorientation', onOrientation);
+      if (document.exitFullscreen) {
+        document.exitFullscreen().catch(function(){});
+      } else if (document.webkitExitFullscreen) {
+        document.webkitExitFullscreen();
+      }
+      fsBtn.textContent = '⛶';
     }
   }
+
+  fsBtn.addEventListener('click', function(e) {
+    e.stopPropagation();
+    toggleFullscreen();
+  });
+  fsBtn.addEventListener('touchend', function(e) {
+    e.stopPropagation();
+    e.preventDefault();
+    toggleFullscreen();
+  }, { passive: false });
 
   // ================== MEDIAPIPE ==================
   var handsReady = false;
@@ -450,7 +516,7 @@
         modelComplexity: 0,
         minDetectionConfidence: 0.5,
         minTrackingConfidence: 0.5,
-        selfieMode: false          // ← задняя камера — не зеркалим
+        selfieMode: true           // ← передняя камера — зеркалим
       });
       handsInstance.onResults(function(results) {
         if (results.multiHandLandmarks && results.multiHandLandmarks.length) {
@@ -552,8 +618,8 @@
       var lm = handData[hi].landmarks;
       var color = HAND_COLORS[hi % HAND_COLORS.length];
 
-      // Задняя камера — НЕ зеркалим X
-      function px(l) { return l.x * W; }
+      // Передняя камера — зеркалим X
+      function px(l) { return (1 - l.x) * W; }
       function py(l) { return l.y * H; }
 
       handCtx.strokeStyle = color;
@@ -650,7 +716,7 @@
     if (!handData.length) return;
 
     var handWorlds = handData.map(function(h) {
-      var nx = h.x;             // задняя камера — не зеркалим
+      var nx = 1 - h.x;         // зеркалим (передняя камера)
       var ny = h.y;
       var ndcX = nx * 2 - 1;
       var ndcY = -(ny * 2 - 1);
@@ -694,13 +760,12 @@
     if (dt < 0) dt = 0;
 
     // Плавное сглаживание поворота
-    currentYaw   += (targetYaw   - currentYaw)   * Math.min(1, dt * 8);
-    currentPitch += (targetPitch - currentPitch) * Math.min(1, dt * 8);
-    currentRoll  += (targetRoll  - currentRoll)  * Math.min(1, dt * 8);
+    currentYaw   += (targetYaw   - currentYaw)   * Math.min(1, dt * 12);
+    currentPitch += (targetPitch - currentPitch) * Math.min(1, dt * 12);
 
     camera.rotation.y = currentYaw;
     camera.rotation.x = currentPitch;
-    camera.rotation.z = currentRoll;
+    camera.rotation.z = 0;
 
     pano.position.copy(camera.position);
 
@@ -767,7 +832,7 @@
     renderer.render(scene, camera);
   }
 
-  // ================== РАЗМЕРЫ + ОРИЕНТАЦИЯ ==================
+  // ================== РАЗМЕРЫ ==================
   function resize() {
     var w = window.innerWidth, h = window.innerHeight;
     camera.aspect = w / h;
@@ -780,39 +845,15 @@
   window.addEventListener('orientationchange', function() { setTimeout(resize, 200); });
   resize();
 
-  // Проверка ориентации
-  function checkOrientation() {
-    var isPortrait = window.innerHeight > window.innerWidth;
-    if (running && isPortrait) {
-      rotateHint.classList.add('show');
-    } else {
-      rotateHint.classList.remove('show');
-    }
-  }
-  window.addEventListener('resize', checkOrientation);
-  window.addEventListener('orientationchange', function() {
-    setTimeout(checkOrientation, 300);
-  });
-
   // ================== СТАРТ ==================
   startBtn.addEventListener('click', function() {
     startBtn.disabled = true;
     startBtn.textContent = 'Запуск...';
-    statusEl.textContent = 'Включаем гироскоп...';
+    statusEl.textContent = 'Запускаем камеру...';
 
-    // Попытка войти в полноэкранный режим + заблокировать ориентацию
-    var el = document.documentElement;
-    if (el.requestFullscreen) {
-      el.requestFullscreen().catch(function(){});
-    }
-    if (screen.orientation && screen.orientation.lock) {
-      screen.orientation.lock('landscape').catch(function(){});
-    }
+    // Автоматически пробуем fullscreen при старте
+    toggleFullscreen();
 
-    // Гироскоп
-    enableGyro();
-
-    // Задняя камера
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       startBtn.disabled = false;
       startBtn.textContent = '❌ Нет камеры';
@@ -822,7 +863,7 @@
     navigator.mediaDevices.getUserMedia({
       audio: false,
       video: {
-        facingMode: { ideal: 'environment' },   // ← задняя камера
+        facingMode: 'user',       // ← передняя камера
         width: { ideal: 640 },
         height: { ideal: 480 }
       }
@@ -840,9 +881,8 @@
       mpFill.style.width = '0%';
       mpPct.textContent = '0%';
 
-      statusEl.textContent = 'Поверни телефон — осмотрись. Лови кубы.';
+      statusEl.textContent = 'Свайпни по экрану — поверни камеру. Лови кубы.';
       initHands();
-      checkOrientation();
     }).catch(function(err) {
       console.error(err);
       startBtn.disabled = false;
