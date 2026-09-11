@@ -1,540 +1,520 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Hand Tracking 3D · Цветные шары</title>
-    <style>
-        body {
-            margin: 0;
-            overflow: hidden;
-            background: black;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        }
-        #info {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            color: white;
-            background: rgba(0,0,0,0.6);
-            padding: 10px 18px;
-            border-radius: 30px;
-            font-size: 15px;
-            font-weight: 500;
-            backdrop-filter: blur(8px);
-            border: 1px solid rgba(255,255,255,0.3);
-            z-index: 100;
-            pointer-events: none;
-        }
-        #status {
-            position: absolute;
-            bottom: 25px;
-            left: 0;
-            right: 0;
-            text-align: center;
-            color: rgba(255,255,255,0.8);
-            font-size: 15px;
-            background: rgba(0,0,0,0.5);
-            padding: 8px 16px;
-            width: fit-content;
-            margin: 0 auto;
-            border-radius: 30px;
-            backdrop-filter: blur(8px);
-            border: 1px solid rgba(255,255,255,0.2);
-            z-index: 100;
-            pointer-events: none;
-        }
-        canvas {
-            display: block;
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-        }
-        /* Видео скрыто, но нужно для MediaPipe */
-        #video {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            opacity: 0.15; /* слегка видно для ориентации, можно поставить 0 */
-            pointer-events: none;
-            z-index: 0;
-            transform: scaleX(-1); /* зеркалим для естественности */
-        }
-        #three-canvas {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 10;
-            pointer-events: none; /* чтобы не мешал, но мышь не нужна */
-        }
-        #hand-canvas {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 20;
-            pointer-events: none;
-            transform: scaleX(-1); /* зеркалим отрисовку рук для соответствия видео */
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Cube Runner VR — белые руки</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%; height: 100%;
+    overflow: hidden;
+    background: #000;
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    -webkit-user-select: none; user-select: none;
+    touch-action: none;
+  }
+  #video {
+    position: fixed; inset: 0;
+    width: 100%; height: 100%;
+    object-fit: cover;
+    z-index: 1;
+  }
+  /* Слой рук — поверх видео, но под HUD */
+  #hand-canvas {
+    position: fixed; inset: 0;
+    width: 100%; height: 100%;
+    z-index: 2;
+    pointer-events: none;
+    /* лёгкое свечение всего слоя */
+    mix-blend-mode: screen;
+  }
+  #three-canvas {
+    position: fixed; inset: 0;
+    width: 100%; height: 100%;
+    z-index: 3;
+    pointer-events: none;
+    background: transparent;
+  }
+  #hud {
+    position: fixed;
+    top: max(16px, env(safe-area-inset-top));
+    left: 50%; transform: translateX(-50%);
+    z-index: 100;
+    display: flex; gap: 10px;
+    font-weight: 800;
+    color: #fff;
+    text-shadow: 0 0 12px rgba(0,0,0,0.9);
+  }
+  .pill {
+    background: rgba(0,0,0,0.45);
+    padding: 8px 16px;
+    border-radius: 30px;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.2);
+    font-size: 15px;
+  }
+  #score { color: #44ffaa; }
+  #combo { color: #ffdd00; }
+  #start-btn {
+    position: fixed;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 200;
+    padding: 24px 48px;
+    font-size: 22px;
+    font-weight: 800;
+    color: #fff;
+    background: linear-gradient(135deg, #ff3366, #aa44ff);
+    border: none; border-radius: 60px;
+    box-shadow: 0 10px 40px rgba(170,68,255,0.6);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    letter-spacing: 1px;
+  }
+  #start-btn:active { transform: translate(-50%, -50%) scale(0.95); }
+  #start-btn.hidden { display: none; }
+  #status {
+    position: fixed;
+    bottom: max(20px, env(safe-area-inset-bottom));
+    left: 50%; transform: translateX(-50%);
+    color: #fff; font-size: 12px;
+    background: rgba(0,0,0,0.5);
+    padding: 6px 14px; border-radius: 20px;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    z-index: 100; white-space: nowrap;
+  }
+  #flash {
+    position: fixed; inset: 0;
+    background: #fff; opacity: 0;
+    pointer-events: none;
+    z-index: 90;
+    transition: opacity 0.15s;
+  }
+</style>
 </head>
 <body>
-    <div id="info">✋ Управляй шарами руками</div>
-    <div id="status">Загрузка камеры...</div>
-    
-    <video id="video" autoplay playsinline muted></video>
-    <canvas id="three-canvas"></canvas>
-    <canvas id="hand-canvas"></canvas>
 
-    <!-- MediaPipe Hands -->
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1646424915/hands.js" crossorigin="anonymous"></script>
-    <!-- Three.js -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<video id="video" playsinline autoplay muted></video>
+<canvas id="hand-canvas"></canvas>
+<canvas id="three-canvas"></canvas>
+<div id="flash"></div>
 
-    <script>
-        (function() {
-            // --- Инициализация сцены Three.js ---
-            const canvas3d = document.getElementById('three-canvas');
-            const scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x0a0a20);
-            
-            // Добавим немного тумана и звёзд для глубины
-            scene.fog = new THREE.FogExp2(0x0a0a20, 0.02);
-            
-            const camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 1000);
-            camera.position.set(0, 0, 12);
-            
-            const renderer = new THREE.WebGLRenderer({ canvas: canvas3d, alpha: false, antialias: true });
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-            renderer.shadowMap.enabled = false; // для производительности
-            
-            // Освещение
-            const ambientLight = new THREE.AmbientLight(0x404060);
-            scene.add(ambientLight);
-            
-            const dirLight = new THREE.DirectionalLight(0xffffff, 1);
-            dirLight.position.set(5, 10, 7);
-            scene.add(dirLight);
-            
-            const backLight = new THREE.PointLight(0x4466ff, 0.5);
-            backLight.position.set(-5, 0, -5);
-            scene.add(backLight);
-            
-            const colorLight1 = new THREE.PointLight(0xff44aa, 0.6);
-            colorLight1.position.set(5, 5, 5);
-            scene.add(colorLight1);
-            
-            const colorLight2 = new THREE.PointLight(0x44ffaa, 0.6);
-            colorLight2.position.set(-5, -5, 5);
-            scene.add(colorLight2);
-            
-            // Звёзды (частицы)
-            const starsGeometry = new THREE.BufferGeometry();
-            const starsCount = 1500;
-            const starPositions = new Float32Array(starsCount * 3);
-            for (let i = 0; i < starsCount * 3; i += 3) {
-                starPositions[i] = (Math.random() - 0.5) * 200;
-                starPositions[i+1] = (Math.random() - 0.5) * 200;
-                starPositions[i+2] = (Math.random() - 0.5) * 200 - 50;
-            }
-            starsGeometry.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
-            const starsMaterial = new THREE.PointsMaterial({ color: 0xffffff, size: 0.2, transparent: true, opacity: 0.8 });
-            const stars = new THREE.Points(starsGeometry, starsMaterial);
-            scene.add(stars);
-            
-            // --- Создаём цветные 3D шары (перетаскиваемые объекты) ---
-            const spheres = [];
-            const sphereCount = 7;
-            const colors = [0xff3366, 0x33ff99, 0x33aaff, 0xffaa33, 0xaa44ff, 0xff44aa, 0x44ffaa];
-            
-            // Позиции для старта (расположим полукругом)
-            const startPositions = [
-                { x: -4, y: 2, z: 0 },
-                { x: -2, y: -1, z: 1 },
-                { x: 0, y: 3, z: -1 },
-                { x: 2, y: -2, z: 2 },
-                { x: 4, y: 1, z: -1 },
-                { x: -3, y: -3, z: 1 },
-                { x: 3, y: 3, z: 0 }
-            ];
-            
-            // Создаём соединительные линии (они будут обновляться динамически)
-            const lineMaterial = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.3 });
-            const lines = [];
-            
-            for (let i = 0; i < sphereCount; i++) {
-                const color = colors[i % colors.length];
-                const geometry = new THREE.SphereGeometry(0.7, 32, 32);
-                const material = new THREE.MeshStandardMaterial({
-                    color: color,
-                    emissive: new THREE.Color(color).multiplyScalar(0.3),
-                    roughness: 0.2,
-                    metalness: 0.1,
-                    emissiveIntensity: 0.8
-                });
-                const sphere = new THREE.Mesh(geometry, material);
-                
-                // Начальная позиция
-                const pos = startPositions[i];
-                sphere.position.set(pos.x, pos.y, pos.z);
-                
-                // Добавим маленькое свечение (нимб)
-                const glowGeometry = new THREE.SphereGeometry(0.85, 16, 16);
-                const glowMaterial = new THREE.MeshBasicMaterial({
-                    color: color,
-                    transparent: true,
-                    opacity: 0.15,
-                    side: THREE.BackSide
-                });
-                const glow = new THREE.Mesh(glowGeometry, glowMaterial);
-                sphere.add(glow);
-                
-                sphere.userData = {
-                    color: color,
-                    index: i,
-                    isDragged: false,
-                    handIndex: null, // какая рука держит (0 или 1)
-                    originalPos: new THREE.Vector3(pos.x, pos.y, pos.z)
-                };
-                
-                scene.add(sphere);
-                spheres.push(sphere);
-            }
-            
-            // Создаём линии между всеми парами шаров (будем обновлять их позиции)
-            const linePairs = [];
-            for (let i = 0; i < sphereCount; i++) {
-                for (let j = i + 1; j < sphereCount; j++) {
-                    const points = [
-                        spheres[i].position.clone(),
-                        spheres[j].position.clone()
-                    ];
-                    const geometry = new THREE.BufferGeometry().setFromPoints(points);
-                    const line = new THREE.Line(geometry, lineMaterial.clone());
-                    line.userData = { a: i, b: j };
-                    scene.add(line);
-                    lines.push(line);
-                    linePairs.push({ a: i, b: j, line: line });
-                }
-            }
-            
-            // --- Отрисовка рук на 2D canvas ---
-            const handCanvas = document.getElementById('hand-canvas');
-            const handCtx = handCanvas.getContext('2d');
-            
-            function resizeHandCanvas() {
-                handCanvas.width = window.innerWidth;
-                handCanvas.height = window.innerHeight;
-            }
-            window.addEventListener('resize', resizeHandCanvas);
-            resizeHandCanvas();
-            
-            // --- MediaPipe Hands ---
-            const videoElement = document.getElementById('video');
-            const statusDiv = document.getElementById('status');
-            
-            let handsResults = null; // последние результаты
-            let handLandmarks = []; // массив рук (нормализованные координаты)
-            
-            // Сопоставление рук и шаров
-            const handSphereMap = new Map(); // key: handIndex (0,1), value: sphereIndex
-            
-            // Инициализация Hands
-            const hands = new Hands({
-                locateFile: (file) => {
-                    return `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1646424915/${file}`;
-                }
-            });
-            
-            hands.setOptions({
-                maxNumHands: 2,
-                modelComplexity: 1,
-                minDetectionConfidence: 0.6,
-                minTrackingConfidence: 0.6
-            });
-            
-            hands.onResults(onResults);
-            
-            // Функция обработки результатов
-            function onResults(results) {
-                handsResults = results;
-                handLandmarks = results.multiHandLandmarks || [];
-                
-                // Обновляем статус
-                if (handLandmarks.length > 0) {
-                    statusDiv.textContent = `✋ Обнаружено рук: ${handLandmarks.length}`;
-                } else {
-                    statusDiv.textContent = '✋ Покажите руки в кадре';
-                }
-                
-                // Обрабатываем перетаскивание
-                processHands(handLandmarks);
-                
-                // Рисуем руки на 2D canvas
-                drawHands(handLandmarks);
-            }
-            
-            // --- Логика перетаскивания ---
-            // Мы используем запястье (landmark 0) для управления
-            // Но также можно использовать средний палец (landmark 9) для точности
-            // Возьмём landmark 9 (середина ладони) для более стабильного контроля
-            
-            // Функция преобразования нормализованных координат в 3D позицию
-            // Нормализованные координаты MediaPipe: x [0,1] слева направо, y [0,1] сверху вниз
-            // Мы зеркалим X, т.к. видео зеркальное, и переводим в мировые координаты Three.js
-            function mapTo3D(nx, ny) {
-                // Зеркалим X для естественного управления (левая рука управляет левой частью экрана)
-                const mirroredX = 1.0 - nx;
-                // Преобразуем в диапазон: X: -6..6, Y: -4..4, Z: оставим 0..3 в зависимости от глубины? 
-                // Но у нас нет глубины из MediaPipe, поэтому Z фиксируем или используем небольшое значение
-                const x = (mirroredX - 0.5) * 14; // -7..7
-                const y = (0.5 - ny) * 9; // -4.5..4.5, инвертируем Y
-                // Z можно сделать зависимым от размера руки? Или просто 0. Выберем небольшое случайное смещение для объёма.
-                // Или используем z = 1.5 для всех, чтобы было ближе к камере.
-                return new THREE.Vector3(x, y, 1.5);
-            }
-            
-            function processHands(landmarks) {
-                // Сбрасываем флаги isDragged у всех шаров
-                spheres.forEach(s => { s.userData.isDragged = false; s.userData.handIndex = null; });
-                
-                // Для каждой руки определяем, какой шар она контролирует
-                const usedSphereIndices = new Set();
-                
-                // Сначала определим, какие шары уже "захвачены" (если рука близко к шару)
-                // Стратегия: для каждой руки ищем ближайший шар в пределах радиуса захвата
-                // Если рука уже держала шар в прошлом кадре, пытаемся сохранить захват
-                
-                // Собираем информацию о руках
-                const handInfos = [];
-                for (let h = 0; h < landmarks.length; h++) {
-                    const hand = landmarks[h];
-                    // Используем landmark 9 (середина ладони) для позиции
-                    const palm = hand[9];
-                    // Также можно использовать запястье (0)
-                    const wrist = hand[0];
-                    // Возьмём среднее между 9 и 0 для стабильности
-                    const nx = (palm.x + wrist.x) / 2;
-                    const ny = (palm.y + wrist.y) / 2;
-                    
-                    const pos3D = mapTo3D(nx, ny);
-                    handInfos.push({ index: h, pos3D, nx, ny });
-                }
-                
-                // Сначала проверим, есть ли уже активные захваты (из предыдущего кадра) - но у нас нет хранения между кадрами,
-                // поэтому будем делать просто: для каждой руки ищем ближайший свободный шар.
-                // Однако, чтобы избежать "перепрыгивания", можно добавить гистерезис, но для простоты сделаем так:
-                // Сортируем руки по расстоянию до шаров и назначаем.
-                
-                // Создаём список возможных пар (рука-шар) с расстояниями
-                const pairs = [];
-                for (const h of handInfos) {
-                    for (let s = 0; s < spheres.length; s++) {
-                        const sphere = spheres[s];
-                        const dist = h.pos3D.distanceTo(sphere.position);
-                        pairs.push({ handIdx: h.index, sphereIdx: s, dist, handPos: h.pos3D, spherePos: sphere.position.clone() });
-                    }
-                }
-                
-                // Сортируем по расстоянию
-                pairs.sort((a, b) => a.dist - b.dist);
-                
-                const assignedHands = new Set();
-                const assignedSpheres = new Set();
-                
-                // Порог захвата (в мировых единицах)
-                const grabThreshold = 2.2;
-                
-                for (const pair of pairs) {
-                    if (assignedHands.has(pair.handIdx)) continue;
-                    if (assignedSpheres.has(pair.sphereIdx)) continue;
-                    if (pair.dist > grabThreshold) continue;
-                    
-                    // Назначаем
-                    assignedHands.add(pair.handIdx);
-                    assignedSpheres.add(pair.sphereIdx);
-                    
-                    const sphere = spheres[pair.sphereIdx];
-                    sphere.userData.isDragged = true;
-                    sphere.userData.handIndex = pair.handIdx;
-                    
-                    // Перемещаем шар в позицию руки
-                    sphere.position.copy(pair.handPos);
-                }
-                
-                // Обновляем линии между шарами (расстояния)
-                updateLines();
-            }
-            
-            function updateLines() {
-                // Обновляем геометрию линий
-                for (const pair of linePairs) {
-                    const a = spheres[pair.a].position;
-                    const b = spheres[pair.b].position;
-                    
-                    // Меняем прозрачность в зависимости от расстояния
-                    const dist = a.distanceTo(b);
-                    const opacity = Math.max(0.1, Math.min(0.8, 2.5 / (dist + 0.5)));
-                    const color = new THREE.Color().setHSL((dist * 0.1) % 1, 0.8, 0.6);
-                    
-                    pair.line.material.opacity = opacity * 0.6;
-                    pair.line.material.color = color;
-                    
-                    // Обновляем позиции
-                    const positions = pair.line.geometry.attributes.position.array;
-                    positions[0] = a.x; positions[1] = a.y; positions[2] = a.z;
-                    positions[3] = b.x; positions[4] = b.y; positions[5] = b.z;
-                    pair.line.geometry.attributes.position.needsUpdate = true;
-                }
-            }
-            
-            // --- Отрисовка рук на 2D canvas ---
-            function drawHands(landmarks) {
-                handCtx.clearRect(0, 0, handCanvas.width, handCanvas.height);
-                
-                if (!landmarks || landmarks.length === 0) return;
-                
-                // Соединения для скелета руки (MediaPipe Hands)
-                const connections = [
-                    [0, 1], [1, 2], [2, 3], [3, 4], // большой палец
-                    [0, 5], [5, 6], [6, 7], [7, 8], // указательный
-                    [5, 9], [9, 10], [10, 11], [11, 12], // средний
-                    [9, 13], [13, 14], [14, 15], [15, 16], // безымянный
-                    [13, 17], [17, 18], [18, 19], [19, 20], // мизинец
-                    [0, 17] // ладонь
-                ];
-                
-                for (const hand of landmarks) {
-                    // Рисуем линии
-                    handCtx.strokeStyle = '#00ffff';
-                    handCtx.lineWidth = 3;
-                    handCtx.shadowColor = '#00ffff';
-                    handCtx.shadowBlur = 10;
-                    
-                    for (const [i, j] of connections) {
-                        const p1 = hand[i];
-                        const p2 = hand[j];
-                        
-                        // Переводим в координаты canvas (с учётом зеркалирования уже на canvas)
-                        // handCanvas уже зеркален через CSS transform: scaleX(-1)
-                        // Поэтому координаты X используем как есть (0..1) и умножаем на ширину
-                        const x1 = p1.x * handCanvas.width;
-                        const y1 = p1.y * handCanvas.height;
-                        const x2 = p2.x * handCanvas.width;
-                        const y2 = p2.y * handCanvas.height;
-                        
-                        handCtx.beginPath();
-                        handCtx.moveTo(x1, y1);
-                        handCtx.lineTo(x2, y2);
-                        handCtx.stroke();
-                    }
-                    
-                    // Рисуем точки
-                    handCtx.shadowBlur = 15;
-                    for (const point of hand) {
-                        const x = point.x * handCanvas.width;
-                        const y = point.y * handCanvas.height;
-                        
-                        // Разный цвет для кончиков пальцев
-                        if (point.z < 0) { // условно, если палец ближе к камере
-                            handCtx.fillStyle = '#ff44aa';
-                        } else {
-                            handCtx.fillStyle = '#44ffaa';
-                        }
-                        handCtx.beginPath();
-                        handCtx.arc(x, y, 6, 0, 2 * Math.PI);
-                        handCtx.fill();
-                    }
-                }
-                handCtx.shadowBlur = 0;
-            }
-            
-            // --- Запуск камеры и MediaPipe ---
-            async function startCamera() {
-                try {
-                    const stream = await navigator.mediaDevices.getUserMedia({
-                        video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }
-                    });
-                    videoElement.srcObject = stream;
-                    await videoElement.play();
-                    
-                    statusDiv.textContent = '✋ Покажите руки в кадре';
-                    
-                    // Запускаем цикл обработки MediaPipe
-                    async function processFrame() {
-                        if (videoElement.readyState >= 2) {
-                            await hands.send({ image: videoElement });
-                        }
-                        requestAnimationFrame(processFrame);
-                    }
-                    processFrame();
-                    
-                } catch (err) {
-                    console.error('Ошибка камеры:', err);
-                    statusDiv.textContent = '❌ Нет доступа к камере. Разрешите доступ.';
-                }
-            }
-            
-            // --- Анимация Three.js ---
-            function animate() {
-                requestAnimationFrame(animate);
-                
-                // Лёгкое вращение звёзд для динамики
-                stars.rotation.y += 0.0002;
-                stars.rotation.x += 0.0001;
-                
-                // Пульсация шаров
-                const time = Date.now() * 0.002;
-                spheres.forEach((sphere, idx) => {
-                    sphere.scale.setScalar(1 + Math.sin(time + idx) * 0.05);
-                    // Немного вращаем свечение
-                    if (sphere.children[0]) {
-                        sphere.children[0].rotation.y += 0.01;
-                    }
-                });
-                
-                // Обновляем линии, если шары двигаются вручную (не через руки)
-                // (updateLines уже вызывается в processHands, но на всякий случай)
-                // Но чтобы не дублировать, оставим только в processHands
-                
-                renderer.render(scene, camera);
-            }
-            
-            // --- Обработка ресайза ---
-            function onResize() {
-                camera.aspect = window.innerWidth / window.innerHeight;
-                camera.updateProjectionMatrix();
-                renderer.setSize(window.innerWidth, window.innerHeight);
-                resizeHandCanvas();
-            }
-            window.addEventListener('resize', onResize);
-            
-            // Запуск
-            startCamera();
-            animate();
-            
-            // Обновляем линии раз в кадр на случай, если шары двигаются не руками
-            setInterval(() => {
-                // Если руки не обнаружены, всё равно обновляем линии для консистентности
-                if (!handLandmarks || handLandmarks.length === 0) {
-                    updateLines();
-                }
-            }, 100);
-            
-            // Добавим немного интерактивности: если долго нет рук, шары медленно возвращаются?
-            // Нет, оставим как есть.
-            
-            console.log('Игра запущена! Управляйте шарами руками.');
-        })();
-    </script>
+<div id="hud">
+  <div class="pill">Очки: <span id="score">0</span></div>
+  <div class="pill">Комбо: <span id="combo">x1</span></div>
+</div>
+
+<div id="status">Нажми старт чтобы начать</div>
+<button id="start-btn">▶ ИГРАТЬ</button>
+
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.js" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+<script>
+(async function() {
+  'use strict';
+
+  const videoEl    = document.getElementById('video');
+  const canvas3d   = document.getElementById('three-canvas');
+  const canvasHand = document.getElementById('hand-canvas');
+  const handCtx    = canvasHand.getContext('2d', { alpha: true });
+  const startBtn   = document.getElementById('start-btn');
+  const statusEl   = document.getElementById('status');
+  const scoreEl    = document.getElementById('score');
+  const comboEl    = document.getElementById('combo');
+  const flashEl    = document.getElementById('flash');
+
+  // ====== THREE.JS ======
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 200);
+  camera.position.set(0, 0, 0);
+
+  const renderer = new THREE.WebGLRenderer({
+    canvas: canvas3d,
+    antialias: false,
+    powerPreference: 'high-performance',
+    alpha: true,
+    stencil: false
+  });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+  renderer.setClearColor(0x000000, 0);
+
+  scene.add(new THREE.AmbientLight(0xffffff, 1.0));
+  const dl = new THREE.DirectionalLight(0xffffff, 0.8);
+  dl.position.set(0, 3, 2);
+  scene.add(dl);
+
+  // ====== КУБЫ (пул) ======
+  const CUBE_COLORS = [0xff3366, 0x33ff99, 0x33aaff, 0xffaa33, 0xaa44ff, 0xff44aa, 0x44ffaa, 0xff6633];
+  const cubes = [];
+  const CUBE_POOL = 30;
+  const cubeGeo = new THREE.BoxGeometry(1, 1, 1);
+
+  for (let i = 0; i < CUBE_POOL; i++) {
+    const color = CUBE_COLORS[i % CUBE_COLORS.length];
+    const mat = new THREE.MeshLambertMaterial({ color, emissive: color, emissiveIntensity: 0.35 });
+    const cube = new THREE.Mesh(cubeGeo, mat);
+    cube.visible = false;
+    cube.userData = { active: false, speed: 0, color, hit: false, rotSpeed: new THREE.Vector3() };
+    scene.add(cube);
+    cubes.push(cube);
+  }
+
+  // ====== ЧАСТИЦЫ ======
+  const PARTICLE_COUNT = 180;
+  const particleGeo = new THREE.BufferGeometry();
+  const pPos = new Float32Array(PARTICLE_COUNT * 3);
+  const pVel = new Float32Array(PARTICLE_COUNT * 3);
+  const pLife = new Float32Array(PARTICLE_COUNT);
+  const pCol = new Float32Array(PARTICLE_COUNT * 3);
+  particleGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
+  particleGeo.setAttribute('color', new THREE.BufferAttribute(pCol, 3));
+  const particles = new THREE.Points(particleGeo, new THREE.PointsMaterial({
+    size: 0.3, vertexColors: true, transparent: true, opacity: 0.95, depthWrite: false
+  }));
+  particles.frustumCulled = false;
+  scene.add(particles);
+  let pIdx = 0;
+  for (let i = 0; i < PARTICLE_COUNT; i++) pLife[i] = 0;
+
+  function spawnParticles(pos, color, count = 14) {
+    const c = new THREE.Color(color);
+    for (let i = 0; i < count; i++) {
+      const k = pIdx; pIdx = (pIdx + 1) % PARTICLE_COUNT;
+      pPos[k*3] = pos.x; pPos[k*3+1] = pos.y; pPos[k*3+2] = pos.z;
+      pVel[k*3]   = (Math.random() - 0.5) * 10;
+      pVel[k*3+1] = (Math.random() - 0.5) * 10;
+      pVel[k*3+2] = (Math.random() - 0.5) * 10;
+      pCol[k*3] = c.r; pCol[k*3+1] = c.g; pCol[k*3+2] = c.b;
+      pLife[k] = 1.0;
+    }
+    particleGeo.attributes.position.needsUpdate = true;
+    particleGeo.attributes.color.needsUpdate = true;
+  }
+
+  // ====== ИГРОВОЕ СОСТОЯНИЕ ======
+  let running = false;
+  let score = 0, combo = 1, comboTimer = 0;
+  let spawnTimer = 0, spawnInterval = 0.85, gameSpeed = 20, elapsed = 0;
+
+  function resetGame() {
+    score = 0; combo = 1; comboTimer = 0;
+    spawnTimer = 0; gameSpeed = 20; elapsed = 0;
+    scoreEl.textContent = '0';
+    comboEl.textContent = 'x1';
+    for (const c of cubes) { c.visible = false; c.userData.active = false; }
+    for (let i = 0; i < PARTICLE_COUNT; i++) pLife[i] = 0;
+  }
+
+  function spawnCube() {
+    for (const cube of cubes) {
+      if (cube.userData.active) continue;
+      cube.userData.active = true;
+      cube.userData.hit = false;
+      cube.userData.speed = gameSpeed * (0.85 + Math.random() * 0.3);
+      const color = CUBE_COLORS[Math.floor(Math.random() * CUBE_COLORS.length)];
+      cube.material.color.setHex(color);
+      cube.material.emissive.setHex(color);
+      cube.userData.color = color;
+
+      const fov = camera.fov * Math.PI / 180;
+      const dist = 60;
+      const visH = 2 * Math.tan(fov / 2) * dist;
+      const visW = visH * camera.aspect;
+      cube.position.x = (Math.random() - 0.5) * visW * 0.9;
+      cube.position.y = (Math.random() - 0.5) * visH * 0.75;
+      cube.position.z = -dist;
+      cube.rotation.set(Math.random()*6, Math.random()*6, Math.random()*6);
+      cube.userData.rotSpeed.set(
+        (Math.random() - 0.5) * 2,
+        (Math.random() - 0.5) * 2,
+        (Math.random() - 0.5) * 2
+      );
+      cube.visible = true;
+      return;
+    }
+  }
+
+  // ====== MEDIAPIPE ======
+  let handsReady = false;
+  let handData = [];  // [{x, y, landmarks}]
+
+  const hands = new Hands({
+    locateFile: (f) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/${f}`
+  });
+
+  hands.setOptions({
+    maxNumHands: 2,
+    modelComplexity: 0,
+    minDetectionConfidence: 0.5,
+    minTrackingConfidence: 0.5,
+    selfieMode: false   // задняя камера
+  });
+
+  hands.onResults((results) => {
+    if (results.multiHandLandmarks && results.multiHandLandmarks.length) {
+      handData = results.multiHandLandmarks.map(lm => {
+        // центр ладони
+        const ids = [0, 5, 9, 13, 17];
+        let x = 0, y = 0;
+        for (const id of ids) { x += lm[id].x; y += lm[id].y; }
+        return { x: x / ids.length, y: y / ids.length, landmarks: lm };
+      });
+    } else {
+      handData = [];
+    }
+  });
+
+  await hands.initialize();
+  handsReady = true;
+
+  // ====== МИР ↔ ЭКРАН ======
+  const fovRad = camera.fov * Math.PI / 180;
+  function screenToWorldAtZ(nx, ny, z) {
+    const d = Math.abs(z);
+    const visH = 2 * Math.tan(fovRad / 2) * d;
+    const visW = visH * camera.aspect;
+    return new THREE.Vector3((nx - 0.5) * visW, (0.5 - ny) * visH, z);
+  }
+
+  // ====== ЛОВЛЯ ======
+  const CATCH_PLANE_Z = -7;
+  const CATCH_RADIUS = 2.0;
+
+  function checkHits() {
+    if (!handData.length) return;
+    const handWorlds = handData.map(h => screenToWorldAtZ(h.x, h.y, CATCH_PLANE_Z));
+
+    for (const cube of cubes) {
+      if (!cube.userData.active) continue;
+      if (cube.position.z > CATCH_PLANE_Z + 2) continue;
+      if (cube.position.z < CATCH_PLANE_Z - 4) continue;
+      for (const hw of handWorlds) {
+        const dx = cube.position.x - hw.x;
+        const dy = cube.position.y - hw.y;
+        if (dx*dx + dy*dy < CATCH_RADIUS * CATCH_RADIUS) {
+          cube.userData.active = false;
+          cube.visible = false;
+          score += 10 * combo;
+          combo = Math.min(combo + 1, 8);
+          comboTimer = 2.0;
+          scoreEl.textContent = score;
+          comboEl.textContent = 'x' + combo;
+          spawnParticles(cube.position, cube.userData.color, 14);
+          flashEl.style.opacity = 0.12;
+          setTimeout(() => { flashEl.style.opacity = 0; }, 60);
+          break;
+        }
+      }
+    }
+  }
+
+  // ====== БЕЛЫЕ РУКИ ======
+  // Рисуем залитый белый силуэт ладони: соединяем точки скелета,
+  // получаем полигон, заливаем белым с мягким краем и свечением.
+  const HAND_POLYGON = [
+    0,   // запястье
+    1, 2, 3, 4,        // большой
+    5, 6, 7, 8,        // указательный
+    9, 10, 11, 12,     // средний
+    13, 14, 15, 16,    // безымянный
+    17, 18, 19, 20,    // мизинец
+    17, 13, 9, 5, 0    // обратно по ладони
+  ];
+
+  function drawWhiteHands() {
+    handCtx.clearRect(0, 0, canvasHand.width, canvasHand.height);
+    if (!handData.length) return;
+
+    const W = canvasHand.width, H = canvasHand.height;
+
+    // Свечение под ладонями (мягкое белое пятно)
+    handCtx.save();
+    handCtx.globalCompositeOperation = 'lighter';
+    for (const h of handData) {
+      const cx = h.x * W;
+      const cy = h.y * H;
+      const r = Math.min(W, H) * 0.14;
+      const grad = handCtx.createRadialGradient(cx, cy, 0, cx, cy, r);
+      grad.addColorStop(0, 'rgba(255,255,255,0.55)');
+      grad.addColorStop(0.5, 'rgba(220,230,255,0.25)');
+      grad.addColorStop(1, 'rgba(180,200,255,0)');
+      handCtx.fillStyle = grad;
+      handCtx.beginPath();
+      handCtx.arc(cx, cy, r, 0, Math.PI * 2);
+      handCtx.fill();
+    }
+    handCtx.restore();
+
+    // Сам силуэт руки — белый полигон
+    for (const h of handData) {
+      const lm = h.landmarks;
+
+      // Путь по контуру
+      handCtx.beginPath();
+      for (let i = 0; i < HAND_POLYGON.length; i++) {
+        const p = lm[HAND_POLYGON[i]];
+        const x = p.x * W;
+        const y = p.y * H;
+        if (i === 0) handCtx.moveTo(x, y);
+        else handCtx.lineTo(x, y);
+      }
+      handCtx.closePath();
+
+      // Заливка белым с лёгкой прозрачностью (чтобы видеть мир сквозь)
+      handCtx.fillStyle = 'rgba(255,255,255,0.78)';
+      handCtx.fill();
+
+      // Внутреннее свечение через тень
+      handCtx.shadowColor = '#ffffff';
+      handCtx.shadowBlur = 30;
+      handCtx.fillStyle = 'rgba(255,255,255,0.35)';
+      handCtx.fill();
+      handCtx.shadowBlur = 0;
+    }
+  }
+
+  // ====== ЦИКЛ ОТРИСОВКИ РУК (реже, чем 3D — для производительности) ======
+  let handDrawAccum = 0;
+  const HAND_DRAW_INTERVAL = 1 / 30; // 30 fps для рук
+
+  // ====== АНИМАЦИЯ ======
+  let lastT = performance.now() / 1000;
+
+  function animate() {
+    requestAnimationFrame(animate);
+
+    const now = performance.now() / 1000;
+    let dt = now - lastT;
+    lastT = now;
+    if (dt > 0.1) dt = 0.1;
+
+    if (running) {
+      elapsed += dt;
+      spawnTimer += dt;
+      gameSpeed = 20 + elapsed * 0.6;
+
+      if (spawnTimer >= spawnInterval) {
+        spawnTimer = 0;
+        spawnCube();
+      }
+
+      // Движение кубов
+      for (const cube of cubes) {
+        if (!cube.userData.active) continue;
+        cube.position.z += cube.userData.speed * dt;
+        cube.rotation.x += cube.userData.rotSpeed.x * dt;
+        cube.rotation.y += cube.userData.rotSpeed.y * dt;
+        cube.rotation.z += cube.userData.rotSpeed.z * dt;
+        if (cube.position.z > 3) {
+          cube.userData.active = false;
+          cube.visible = false;
+          // промах — сброс комбо
+          if (combo > 1) { combo = 1; comboEl.textContent = 'x1'; }
+        }
+      }
+
+      if (comboTimer > 0) {
+        comboTimer -= dt;
+        if (comboTimer <= 0) {
+          combo = 1; comboEl.textContent = 'x1';
+        }
+      }
+
+      checkHits();
+    }
+
+    // Частицы
+    let anyAlive = false;
+    for (let i = 0; i < PARTICLE_COUNT; i++) {
+      if (pLife[i] <= 0) continue;
+      anyAlive = true;
+      pLife[i] -= dt * 1.6;
+      if (pLife[i] < 0) pLife[i] = 0;
+      pPos[i*3]   += pVel[i*3]   * dt;
+      pPos[i*3+1] += pVel[i*3+1] * dt;
+      pPos[i*3+2] += pVel[i*3+2] * dt;
+      pVel[i*3]   *= 0.94;
+      pVel[i*3+1] *= 0.94;
+      pVel[i*3+2] *= 0.94;
+    }
+    if (anyAlive) {
+      particleGeo.attributes.position.needsUpdate = true;
+      particles.material.opacity = 0.95;
+    } else {
+      particles.material.opacity = 0;
+    }
+
+    // Отрисовка рук ~30 fps
+    handDrawAccum += dt;
+    if (handDrawAccum >= HAND_DRAW_INTERVAL) {
+      handDrawAccum = 0;
+      drawWhiteHands();
+    }
+
+    renderer.render(scene, camera);
+  }
+
+  // ====== ЦИКЛ MEDIAPIPE ======
+  async function sendFrame() {
+    if (!handsReady || videoEl.readyState < 2) return;
+    try { await hands.send({ image: videoEl }); } catch(e) {}
+  }
+  function mpLoop() {
+    sendFrame();
+    requestAnimationFrame(mpLoop);
+  }
+
+  // ====== РАЗМЕРЫ ======
+  function resize() {
+    const w = window.innerWidth, h = window.innerHeight;
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+    renderer.setSize(w, h);
+    canvasHand.width = w;
+    canvasHand.height = h;
+  }
+  window.addEventListener('resize', resize);
+  window.addEventListener('orientationchange', () => setTimeout(resize, 200));
+  resize();
+
+  // ====== СТАРТ ======
+  startBtn.addEventListener('click', async () => {
+    startBtn.disabled = true;
+    startBtn.textContent = 'Запуск...';
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: { ideal: 'environment' },  // ← задняя камера
+          width: { ideal: 640 },
+          height: { ideal: 480 }
+        },
+        audio: false
+      });
+      videoEl.srcObject = stream;
+      await videoEl.play();
+
+      startBtn.classList.add('hidden');
+      statusEl.textContent = 'Держи руки в кадре — лови кубы';
+      resetGame();
+      running = true;
+      lastT = performance.now() / 1000;
+      mpLoop();
+    } catch (err) {
+      console.error(err);
+      startBtn.disabled = false;
+      startBtn.textContent = '❌ Нет камеры. Повторить';
+      statusEl.textContent = 'Разреши доступ к камере в настройках Safari';
+    }
+  });
+
+  animate();
+})();
+</script>
 </body>
 </html>
