@@ -2,8 +2,9 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>VR Cube Runner</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -29,34 +30,33 @@
   }
   #hud {
     position: fixed;
-    top: max(16px, env(safe-area-inset-top));
+    top: max(12px, env(safe-area-inset-top));
     left: 50%; transform: translateX(-50%);
     z-index: 100;
     display: flex; gap: 10px;
     font-weight: 800; color: #fff;
     text-shadow: 0 0 12px rgba(0,0,0,0.9);
+    font-size: 14px;
   }
   .pill {
     background: rgba(0,0,0,0.5);
-    padding: 8px 16px; border-radius: 30px;
+    padding: 6px 14px; border-radius: 30px;
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
     border: 1px solid rgba(255,255,255,0.2);
-    font-size: 15px;
   }
   #score { color: #44ffaa; }
   #combo { color: #ffdd00; }
 
-  /* Прогресс-бар загрузки рук */
   #mp-bar {
     position: fixed;
-    top: max(60px, calc(env(safe-area-inset-top) + 44px));
+    top: max(52px, calc(env(safe-area-inset-top) + 40px));
     left: 50%; transform: translateX(-50%);
     z-index: 100;
-    width: min(320px, 80vw);
+    width: min(320px, 70vw);
     background: rgba(0,0,0,0.6);
     border-radius: 20px;
-    padding: 10px 14px;
+    padding: 8px 14px;
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
     border: 1px solid rgba(255,255,255,0.2);
@@ -68,26 +68,19 @@
     pointer-events: none;
   }
   #mp-label {
-    color: #fff;
-    font-size: 12px;
-    font-weight: 600;
-    margin-bottom: 6px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+    color: #fff; font-size: 11px; font-weight: 600;
+    margin-bottom: 5px;
+    display: flex; justify-content: space-between; align-items: center;
   }
   #mp-label .status-txt { color: #88aaff; }
   #mp-label .pct { color: #44ffaa; font-variant-numeric: tabular-nums; }
   #mp-track {
-    width: 100%;
-    height: 6px;
+    width: 100%; height: 5px;
     background: rgba(255,255,255,0.15);
-    border-radius: 4px;
-    overflow: hidden;
+    border-radius: 4px; overflow: hidden;
   }
   #mp-fill {
-    height: 100%;
-    width: 0%;
+    height: 100%; width: 0%;
     background: linear-gradient(90deg, #4488ff, #aa44ff, #ff44aa);
     border-radius: 4px;
     transition: width 0.2s;
@@ -99,8 +92,8 @@
     top: 50%; left: 50%;
     transform: translate(-50%, -50%);
     z-index: 200;
-    padding: 24px 48px;
-    font-size: 22px; font-weight: 800;
+    padding: 20px 42px;
+    font-size: 20px; font-weight: 800;
     color: #fff;
     background: linear-gradient(135deg, #ff3366, #aa44ff);
     border: none; border-radius: 60px;
@@ -115,11 +108,11 @@
 
   #status {
     position: fixed;
-    bottom: max(20px, env(safe-area-inset-bottom));
+    bottom: max(12px, env(safe-area-inset-bottom));
     left: 50%; transform: translateX(-50%);
-    color: #fff; font-size: 13px;
+    color: #fff; font-size: 12px;
     background: rgba(0,0,0,0.6);
-    padding: 8px 16px; border-radius: 20px;
+    padding: 6px 14px; border-radius: 20px;
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
     z-index: 100;
@@ -127,6 +120,34 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  /* Подсказка "поверни телефон горизонтально" */
+  #rotate-hint {
+    position: fixed; inset: 0;
+    z-index: 150;
+    background: rgba(0,0,0,0.85);
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    text-align: center;
+    padding: 20px;
+  }
+  #rotate-hint.show { display: flex; }
+  #rotate-hint .icon {
+    font-size: 64px;
+    margin-bottom: 20px;
+    animation: rotatePhone 2s ease-in-out infinite;
+  }
+  @keyframes rotatePhone {
+    0%, 100% { transform: rotate(0deg); }
+    50% { transform: rotate(90deg); }
+  }
+  #rotate-hint .text {
+    font-size: 18px; font-weight: 600;
+    max-width: 300px;
   }
 </style>
 </head>
@@ -146,6 +167,11 @@
     <span class="pct" id="mp-pct">0%</span>
   </div>
   <div id="mp-track"><div id="mp-fill"></div></div>
+</div>
+
+<div id="rotate-hint">
+  <div class="icon">📱</div>
+  <div class="text">Поверни телефон горизонтально<br>чтобы играть в VR</div>
 </div>
 
 <div id="status">Нажми «Старт» чтобы войти</div>
@@ -169,6 +195,7 @@
   var mpFill     = document.getElementById('mp-fill');
   var mpPct      = document.getElementById('mp-pct');
   var mpStatus   = document.getElementById('mp-status');
+  var rotateHint = document.getElementById('rotate-hint');
 
   if (typeof THREE === 'undefined') {
     statusEl.textContent = '❌ Three.js не загрузился';
@@ -177,7 +204,7 @@
 
   // ================== THREE.JS ==================
   var scene = new THREE.Scene();
-  var camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+  var camera = new THREE.PerspectiveCamera(80, window.innerWidth / window.innerHeight, 0.1, 1000);
   camera.position.set(0, 1.6, 0);
   camera.rotation.order = 'YXZ';
 
@@ -197,7 +224,7 @@
   var pano = new THREE.Mesh(panoGeo, panoMat);
   scene.add(pano);
 
-  // Градиент "закат" (fallback)
+  // Градиент-закат
   var gradCanvas = document.createElement('canvas');
   gradCanvas.width = 1024; gradCanvas.height = 512;
   var gctx = gradCanvas.getContext('2d');
@@ -213,7 +240,6 @@
     gctx.fillStyle = 'rgba(255,255,255,' + (Math.random() * 0.7) + ')';
     gctx.fillRect(Math.random() * 1024, Math.random() * 220, 2, 2);
   }
-  // Солнце
   var sunGrad = gctx.createRadialGradient(512, 380, 0, 512, 380, 150);
   sunGrad.addColorStop(0, 'rgba(255,240,180,1)');
   sunGrad.addColorStop(0.4, 'rgba(255,180,100,0.6)');
@@ -225,7 +251,6 @@
   panoMat.map = gradientTex;
   panoMat.needsUpdate = true;
 
-  // Пытаемся подгрузить реальную 360-панораму в фоне
   var texLoader = new THREE.TextureLoader();
   texLoader.crossOrigin = 'anonymous';
   texLoader.load(
@@ -236,7 +261,7 @@
       panoMat.needsUpdate = true;
     },
     undefined,
-    function() { /* оставляем градиент */ }
+    function() {}
   );
 
   // ================== МЕНЮ-ПАНЕЛЬ ==================
@@ -244,11 +269,10 @@
   menuGroup.position.set(0, 1.5, -2.5);
   scene.add(menuGroup);
 
-  var menuBgGeo = new THREE.PlaneGeometry(2.2, 1.4);
   var menuBgMat = new THREE.MeshBasicMaterial({
     color: 0x0a0a14, transparent: true, opacity: 0.92, side: THREE.DoubleSide
   });
-  menuGroup.add(new THREE.Mesh(menuBgGeo, menuBgMat));
+  menuGroup.add(new THREE.Mesh(new THREE.PlaneGeometry(2.2, 1.4), menuBgMat));
 
   var borderMat = new THREE.MeshBasicMaterial({
     color: 0x4488ff, transparent: true, opacity: 0.6, side: THREE.DoubleSide
@@ -257,7 +281,6 @@
   border.position.z = -0.001;
   menuGroup.add(border);
 
-  // Заголовок
   var titleCanvas = document.createElement('canvas');
   titleCanvas.width = 1024; titleCanvas.height = 256;
   var tctx = titleCanvas.getContext('2d');
@@ -275,7 +298,6 @@
   titleMesh.position.set(0, 0.42, 0.01);
   menuGroup.add(titleMesh);
 
-  // Плитки
   var tileColors = [0xff3366, 0x33aaff, 0xaa44ff];
   var tileLabels = ['EXPLORE', 'PLAY', 'SOCIAL'];
   for (var t = 0; t < 3; t++) {
@@ -361,7 +383,9 @@
     particleGeo.attributes.color.needsUpdate = true;
   }
 
-  // ================== ГИРОСКОП ==================
+  // ================== ГИРОСКОП (низкая чувствительность) ==================
+  var GYRO_SENS = 0.35;    // ← было 1.0, стало 0.35 — плавно и без дёрганья
+  var GYRO_PITCH_SENS = 0.4;
   var gyroBaseYaw = null, gyroBasePitch = null;
   var targetYaw = 0, targetPitch = 0, targetRoll = 0;
   var currentYaw = 0, currentPitch = 0, currentRoll = 0;
@@ -377,9 +401,9 @@
     while (dYaw < -180) dYaw += 360;
     var dPitch = e.beta - gyroBasePitch;
 
-    targetYaw   = -dYaw * Math.PI / 180;
-    targetPitch = -dPitch * Math.PI / 180;
-    targetRoll  = (e.gamma || 0) * Math.PI / 180 * 0.5;
+    targetYaw   = -dYaw   * Math.PI / 180 * GYRO_SENS;
+    targetPitch = -dPitch * Math.PI / 180 * GYRO_PITCH_SENS;
+    targetRoll  = (e.gamma || 0) * Math.PI / 180 * 0.15;
   }
 
   function enableGyro() {
@@ -397,7 +421,7 @@
     }
   }
 
-  // ================== MEDIAPIPE (с прогресс-баром) ==================
+  // ================== MEDIAPIPE ==================
   var handsReady = false;
   var handData = [];
   var handsInstance = null;
@@ -408,59 +432,6 @@
   videoEl.muted = true;
   videoEl.style.display = 'none';
   document.body.appendChild(videoEl);
-
-  // Прогресс: отслеживаем загрузку WASM-файла MediaPipe через fetch
-  function trackModelDownload() {
-    var urls = [
-      { url: 'https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands_solution_packed_assets_loader.js', weight: 0.05 },
-      { url: 'https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands_solution_simd_wasm_bin.wasm', weight: 0.85 },
-      { url: 'https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.binarypb', weight: 0.10 }
-    ];
-    var totalLoaded = 0;
-    var totalSize = 0;
-    urls.forEach(function(item) {
-      fetch(item.url, { method: 'HEAD' })
-        .then(function(r) { return r.headers.get('content-length'); })
-        .then(function(len) {
-          totalSize += (parseInt(len) || 1000000) * item.weight;
-        })
-        .catch(function() { totalSize += 1000000 * item.weight; });
-    });
-
-    // Для каждого файла — читаем поток и обновляем прогресс
-    var loadedPerFile = urls.map(function() { return 0; });
-    var sizePerFile = urls.map(function() { return 1000000; }); // значение по умолчанию
-
-    function updateBar() {
-      var total = 0, loaded = 0;
-      for (var i = 0; i < urls.length; i++) {
-        total += sizePerFile[i];
-        loaded += Math.min(loadedPerFile[i], sizePerFile[i]);
-      }
-      var pct = Math.min(99, Math.round((loaded / total) * 100));
-      mpFill.style.width = pct + '%';
-      mpPct.textContent = pct + '%';
-    }
-
-    urls.forEach(function(item, idx) {
-      fetch(item.url)
-        .then(function(response) {
-          var size = parseInt(response.headers.get('content-length')) || 1000000;
-          sizePerFile[idx] = size;
-          var reader = response.body.getReader();
-          function read() {
-            return reader.read().then(function(result) {
-              if (result.done) return;
-              loadedPerFile[idx] += result.value.length;
-              updateBar();
-              return read();
-            });
-          }
-          return read();
-        })
-        .catch(function() {});
-    });
-  }
 
   function initHands() {
     if (handsInstance) return;
@@ -479,7 +450,7 @@
         modelComplexity: 0,
         minDetectionConfidence: 0.5,
         minTrackingConfidence: 0.5,
-        selfieMode: true
+        selfieMode: false          // ← задняя камера — не зеркалим
       });
       handsInstance.onResults(function(results) {
         if (results.multiHandLandmarks && results.multiHandLandmarks.length) {
@@ -494,7 +465,6 @@
         }
       });
 
-      // Прогресс: пока модель инициализируется — показываем 90-99%
       trackModelDownload();
 
       handsInstance.initialize().then(function() {
@@ -502,15 +472,51 @@
         mpFill.style.width = '100%';
         mpPct.textContent = '100%';
         mpStatus.textContent = 'Готово ✓';
-        setTimeout(function() {
-          mpBar.classList.add('hidden');
-        }, 800);
+        setTimeout(function() { mpBar.classList.add('hidden'); }, 800);
         startMpLoop();
       }).catch(function(err) {
         console.error('MP init error', err);
         mpStatus.textContent = '⚠️ Ошибка загрузки';
       });
     } catch (e) { console.error(e); }
+  }
+
+  function trackModelDownload() {
+    var urls = [
+      'https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands_solution_packed_assets_loader.js',
+      'https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands_solution_simd_wasm_bin.wasm',
+      'https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.binarypb'
+    ];
+    var loadedPerFile = [0, 0, 0];
+    var sizePerFile = [50000, 5000000, 500000];
+
+    function updateBar() {
+      var total = 0, loaded = 0;
+      for (var i = 0; i < urls.length; i++) {
+        total += sizePerFile[i];
+        loaded += Math.min(loadedPerFile[i], sizePerFile[i]);
+      }
+      var pct = Math.min(99, Math.round((loaded / total) * 100));
+      mpFill.style.width = pct + '%';
+      mpPct.textContent = pct + '%';
+    }
+
+    urls.forEach(function(url, idx) {
+      fetch(url).then(function(response) {
+        var size = parseInt(response.headers.get('content-length')) || sizePerFile[idx];
+        sizePerFile[idx] = size;
+        var reader = response.body.getReader();
+        function read() {
+          return reader.read().then(function(result) {
+            if (result.done) return;
+            loadedPerFile[idx] += result.value.length;
+            updateBar();
+            return read();
+          });
+        }
+        return read();
+      }).catch(function() {});
+    });
   }
 
   function startMpLoop() {
@@ -527,34 +533,29 @@
   }
 
   // ================== СКЕЛЕТ РУК ==================
-  // Простые линии между landmarks + точки на суставах
   var CONNECTIONS = [
-    [0,1],[1,2],[2,3],[3,4],           // большой
-    [0,5],[5,6],[6,7],[7,8],           // указательный
-    [5,9],[9,10],[10,11],[11,12],      // средний
-    [9,13],[13,14],[14,15],[15,16],    // безымянный
-    [13,17],[17,18],[18,19],[19,20],   // мизинец
-    [0,17],[0,5]                       // ладонь
+    [0,1],[1,2],[2,3],[3,4],
+    [0,5],[5,6],[6,7],[7,8],
+    [5,9],[9,10],[10,11],[11,12],
+    [9,13],[13,14],[14,15],[15,16],
+    [13,17],[17,18],[18,19],[19,20],
+    [0,17],[0,5]
   ];
-
-  // Цвета для разных рук
   var HAND_COLORS = ['#00ffff', '#ff44aa'];
 
   function drawHands() {
     handCtx.clearRect(0, 0, canvasHand.width, canvasHand.height);
     if (!handData.length) return;
-
     var W = canvasHand.width, H = canvasHand.height;
 
     for (var hi = 0; hi < handData.length; hi++) {
       var lm = handData[hi].landmarks;
       var color = HAND_COLORS[hi % HAND_COLORS.length];
 
-      // Зеркалим X (селфи-камера)
-      function px(l) { return (1 - l.x) * W; }
+      // Задняя камера — НЕ зеркалим X
+      function px(l) { return l.x * W; }
       function py(l) { return l.y * H; }
 
-      // Линии
       handCtx.strokeStyle = color;
       handCtx.lineWidth = 4;
       handCtx.lineCap = 'round';
@@ -571,7 +572,6 @@
         handCtx.stroke();
       }
 
-      // Точки на всех суставах
       handCtx.shadowBlur = 8;
       handCtx.fillStyle = color;
       for (var ji = 0; ji < lm.length; ji++) {
@@ -581,7 +581,6 @@
         handCtx.fill();
       }
 
-      // Кончики пальцев — крупнее и белым ядром
       handCtx.shadowBlur = 15;
       var tips = [4, 8, 12, 16, 20];
       for (var ti = 0; ti < tips.length; ti++) {
@@ -594,7 +593,6 @@
         handCtx.lineWidth = 2;
         handCtx.stroke();
       }
-
       handCtx.shadowBlur = 0;
     }
   }
@@ -645,7 +643,6 @@
     }
   }
 
-  // ================== ЛОВЛЯ РУКАМИ ==================
   var CATCH_DIST = 1.5;
   var CATCH_RADIUS = 0.55;
 
@@ -653,7 +650,7 @@
     if (!handData.length) return;
 
     var handWorlds = handData.map(function(h) {
-      var nx = 1 - h.x;
+      var nx = h.x;             // задняя камера — не зеркалим
       var ny = h.y;
       var ndcX = nx * 2 - 1;
       var ndcY = -(ny * 2 - 1);
@@ -696,9 +693,10 @@
     if (dt > 0.1) dt = 0.1;
     if (dt < 0) dt = 0;
 
-    currentYaw   += (targetYaw   - currentYaw)   * Math.min(1, dt * 12);
-    currentPitch += (targetPitch - currentPitch) * Math.min(1, dt * 12);
-    currentRoll  += (targetRoll  - currentRoll)  * Math.min(1, dt * 12);
+    // Плавное сглаживание поворота
+    currentYaw   += (targetYaw   - currentYaw)   * Math.min(1, dt * 8);
+    currentPitch += (targetPitch - currentPitch) * Math.min(1, dt * 8);
+    currentRoll  += (targetRoll  - currentRoll)  * Math.min(1, dt * 8);
 
     camera.rotation.y = currentYaw;
     camera.rotation.x = currentPitch;
@@ -769,7 +767,7 @@
     renderer.render(scene, camera);
   }
 
-  // ================== РАЗМЕРЫ ==================
+  // ================== РАЗМЕРЫ + ОРИЕНТАЦИЯ ==================
   function resize() {
     var w = window.innerWidth, h = window.innerHeight;
     camera.aspect = w / h;
@@ -782,16 +780,39 @@
   window.addEventListener('orientationchange', function() { setTimeout(resize, 200); });
   resize();
 
+  // Проверка ориентации
+  function checkOrientation() {
+    var isPortrait = window.innerHeight > window.innerWidth;
+    if (running && isPortrait) {
+      rotateHint.classList.add('show');
+    } else {
+      rotateHint.classList.remove('show');
+    }
+  }
+  window.addEventListener('resize', checkOrientation);
+  window.addEventListener('orientationchange', function() {
+    setTimeout(checkOrientation, 300);
+  });
+
   // ================== СТАРТ ==================
   startBtn.addEventListener('click', function() {
     startBtn.disabled = true;
     startBtn.textContent = 'Запуск...';
     statusEl.textContent = 'Включаем гироскоп...';
 
-    // 1) Гироскоп
+    // Попытка войти в полноэкранный режим + заблокировать ориентацию
+    var el = document.documentElement;
+    if (el.requestFullscreen) {
+      el.requestFullscreen().catch(function(){});
+    }
+    if (screen.orientation && screen.orientation.lock) {
+      screen.orientation.lock('landscape').catch(function(){});
+    }
+
+    // Гироскоп
     enableGyro();
 
-    // 2) Камера
+    // Задняя камера
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       startBtn.disabled = false;
       startBtn.textContent = '❌ Нет камеры';
@@ -801,7 +822,7 @@
     navigator.mediaDevices.getUserMedia({
       audio: false,
       video: {
-        facingMode: 'user',
+        facingMode: { ideal: 'environment' },   // ← задняя камера
         width: { ideal: 640 },
         height: { ideal: 480 }
       }
@@ -814,7 +835,6 @@
       running = true;
       lastT = performance.now() / 1000;
 
-      // Показываем прогресс-бар для MediaPipe
       mpBar.classList.remove('hidden');
       mpStatus.textContent = 'Загрузка рук...';
       mpFill.style.width = '0%';
@@ -822,6 +842,7 @@
 
       statusEl.textContent = 'Поверни телефон — осмотрись. Лови кубы.';
       initHands();
+      checkOrientation();
     }).catch(function(err) {
       console.error(err);
       startBtn.disabled = false;
