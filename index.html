@@ -184,7 +184,7 @@
 
   if (typeof THREE === 'undefined') { alert('Three.js не загрузился'); return; }
 
-  // ================= ТОСТ =================
+  // ============ ТОСТ ============
   var toastTimer = null;
   function showToast(text, duration) {
     duration = duration || 3000;
@@ -194,21 +194,22 @@
     toastTimer = setTimeout(function() { toastEl.classList.remove('show'); }, duration);
   }
 
-  // ================= THREE.JS =================
+  // ============ THREE.JS ============
   var scene = new THREE.Scene();
   var camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.05, 1000);
   camera.position.set(0, 1.55, 0);
   camera.rotation.order = 'YXZ';
 
   var renderer = new THREE.WebGLRenderer({
-    canvas: canvas3d,
-    antialias: true,
-    powerPreference: 'high-performance'
+    canvas: canvas3d, antialias: true, powerPreference: 'high-performance'
   });
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
-  // ================= СТАРЫЙ ФОН (панорама заката) =================
+  var raycaster = new THREE.Raycaster();
+  var pointerNDC = new THREE.Vector2(0, 0);
+
+  // ============ СТАРЫЙ ФОН (панорама) ============
   var panoGeo = new THREE.SphereGeometry(500, 60, 40);
   panoGeo.scale(-1, 1, 1);
   var panoMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
@@ -254,7 +255,7 @@
     function() {}
   );
 
-  // ================= СВЕТ =================
+  // ============ СВЕТ ============
   scene.add(new THREE.AmbientLight(0xffffff, 0.9));
   var dl = new THREE.DirectionalLight(0xffffff, 1.0);
   dl.position.set(2, 5, 3);
@@ -262,28 +263,25 @@
   var pl1 = new THREE.PointLight(0xffaa66, 1.2, 25); pl1.position.set(0, 4, -3); scene.add(pl1);
   var pl2 = new THREE.PointLight(0x88aaff, 0.8, 25); pl2.position.set(-3, 3, 2); scene.add(pl2);
 
-  // ================= ГРУППЫ СЦЕН =================
-  var menuScene = new THREE.Group();  // главное меню
-  var gameScene = new THREE.Group();  // офис Job Sim
+  // ============ ГРУППЫ ============
+  var menuScene = new THREE.Group();
+  var gameScene = new THREE.Group();
   gameScene.visible = false;
   scene.add(menuScene);
   scene.add(gameScene);
 
   // ================================================================
-  // ГЛАВНОЕ МЕНЮ (3D панель с кнопкой "ИГРАТЬ")
+  // МЕНЮ
   // ================================================================
   var menuRoot = new THREE.Group();
   menuRoot.position.set(0, 1.5, -2.5);
   menuScene.add(menuRoot);
 
-  // Панель меню
   var menuBgMat = new THREE.MeshBasicMaterial({
     color: 0x0a0a14, transparent: true, opacity: 0.92, side: THREE.DoubleSide
   });
-  var menuBg = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 1.6), menuBgMat);
-  menuRoot.add(menuBg);
+  menuRoot.add(new THREE.Mesh(new THREE.PlaneGeometry(2.4, 1.6), menuBgMat));
 
-  // Рамка
   var borderMat = new THREE.MeshBasicMaterial({
     color: 0x4488ff, transparent: true, opacity: 0.7, side: THREE.DoubleSide
   });
@@ -291,7 +289,6 @@
   border.position.z = -0.001;
   menuRoot.add(border);
 
-  // Заголовок
   var titleCanvas = document.createElement('canvas');
   titleCanvas.width = 1024; titleCanvas.height = 256;
   var tctx = titleCanvas.getContext('2d');
@@ -309,97 +306,91 @@
   titleMesh.position.set(0, 0.5, 0.01);
   menuRoot.add(titleMesh);
 
+  // Подсказка
+  var hintCanvas = document.createElement('canvas');
+  hintCanvas.width = 1024; hintCanvas.height = 128;
+  var hctx = hintCanvas.getContext('2d');
+  hctx.fillStyle = '#88aaff';
+  hctx.font = '38px -apple-system, sans-serif';
+  hctx.textAlign = 'center'; hctx.textBaseline = 'middle';
+  hctx.fillText('тапни по кнопке или наведи руку', 512, 64);
+  var hintMat = new THREE.MeshBasicMaterial({
+    map: new THREE.CanvasTexture(hintCanvas), transparent: true
+  });
+  var hintMesh = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 0.22), hintMat);
+  hintMesh.position.set(0, 0.05, 0.01);
+  menuRoot.add(hintMesh);
+
   // ============ КНОПКА "ИГРАТЬ" ============
-  // Обычная 3D кнопка, наводишь руку → подсвечивается → 2 сек → срабатывает
   var playBtnGroup = new THREE.Group();
-  playBtnGroup.position.set(0, -0.2, 0.01);
+  playBtnGroup.position.set(0, -0.35, 0.02);
   menuRoot.add(playBtnGroup);
 
   var playBtnMat = new THREE.MeshBasicMaterial({
-    color: 0x44ff88,
-    transparent: true,
-    opacity: 0.85,
-    side: THREE.DoubleSide
+    color: 0x44ff88, transparent: true, opacity: 0.9, side: THREE.DoubleSide
   });
-  var playBtn = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 0.5), playBtnMat);
+  var playBtn = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.55), playBtnMat);
   playBtnGroup.add(playBtn);
-
-  var playBtnBorderMat = new THREE.MeshBasicMaterial({
-    color: 0x88ffaa,
-    transparent: true,
-    opacity: 0.9,
-    side: THREE.DoubleSide
-  });
-  var playBtnBorder = new THREE.Mesh(new THREE.PlaneGeometry(1.44, 0.54), playBtnBorderMat);
-  playBtnBorder.position.z = -0.002;
-  playBtnGroup.add(playBtnBorder);
 
   var playLabelCanvas = document.createElement('canvas');
   playLabelCanvas.width = 1024; playLabelCanvas.height = 256;
   var plctx = playLabelCanvas.getContext('2d');
   plctx.fillStyle = '#001a0a';
-  plctx.font = 'bold 110px -apple-system, sans-serif';
+  plctx.font = 'bold 120px -apple-system, sans-serif';
   plctx.textAlign = 'center'; plctx.textBaseline = 'middle';
   plctx.fillText('▶  ИГРАТЬ', 512, 128);
   var playLabelMat = new THREE.MeshBasicMaterial({
     map: new THREE.CanvasTexture(playLabelCanvas), transparent: true
   });
-  var playLabel = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 0.5), playLabelMat);
+  var playLabel = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.55), playLabelMat);
   playLabel.position.z = 0.005;
   playBtnGroup.add(playLabel);
+  playBtn.userData.isButton = true;
+  playBtn.userData.action = 'play';
 
-  // Прогресс-кружок для наведения
-  var holdProgress = 0;  // 0..1
-  var playBtnHoldTime = 1.5; // секунд для срабатывания
-
-  // Кнопка "Выход" (в игре вернуться в меню)
+  // ============ КНОПКА "МЕНЮ" (в игре) ============
   var backBtnGroup = new THREE.Group();
-  backBtnGroup.position.set(0, 1.0, -2.5);
-  backBtnGroup.visible = false;
+  backBtnGroup.position.set(0, 2.9, -3.0);
   gameScene.add(backBtnGroup);
 
   var backBtnMat = new THREE.MeshBasicMaterial({
-    color: 0x442244, transparent: true, opacity: 0.9, side: THREE.DoubleSide
+    color: 0x662288, transparent: true, opacity: 0.9, side: THREE.DoubleSide
   });
-  var backBtn = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.3), backBtnMat);
+  var backBtn = new THREE.Mesh(new THREE.PlaneGeometry(1.0, 0.35), backBtnMat);
   backBtnGroup.add(backBtn);
 
   var backLabelCanvas = document.createElement('canvas');
   backLabelCanvas.width = 512; backLabelCanvas.height = 128;
   var blctx = backLabelCanvas.getContext('2d');
   blctx.fillStyle = '#ffffff';
-  blctx.font = 'bold 60px -apple-system, sans-serif';
+  blctx.font = 'bold 70px -apple-system, sans-serif';
   blctx.textAlign = 'center'; blctx.textBaseline = 'middle';
   blctx.fillText('◀ МЕНЮ', 256, 64);
   var backLabelMat = new THREE.MeshBasicMaterial({
     map: new THREE.CanvasTexture(backLabelCanvas), transparent: true
   });
-  var backLabel = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.3), backLabelMat);
+  var backLabel = new THREE.Mesh(new THREE.PlaneGeometry(1.0, 0.35), backLabelMat);
   backLabel.position.z = 0.005;
   backBtnGroup.add(backLabel);
+  backBtn.userData.isButton = true;
+  backBtn.userData.action = 'menu';
 
   // ================================================================
-  // ИГРОВАЯ СЦЕНА — ОФИС
+  // ИГРОВАЯ СЦЕНА
   // ================================================================
-
-  // Пол
   var floorMat = new THREE.MeshStandardMaterial({ color: 0x4a4030, roughness: 0.9 });
   var floor = new THREE.Mesh(new THREE.PlaneGeometry(20, 20), floorMat);
   floor.rotation.x = -Math.PI / 2;
-  floor.position.y = 0;
   gameScene.add(floor);
 
-  // Стены
   var wallMat = new THREE.MeshStandardMaterial({ color: 0x6a5a4a, roughness: 1, side: THREE.DoubleSide });
   var backWall = new THREE.Mesh(new THREE.PlaneGeometry(20, 6), wallMat);
   backWall.position.set(0, 3, -8);
   gameScene.add(backWall);
-
   var leftWall = new THREE.Mesh(new THREE.PlaneGeometry(16, 6), wallMat);
   leftWall.position.set(-8, 3, 0);
   leftWall.rotation.y = Math.PI / 2;
   gameScene.add(leftWall);
-
   var rightWall = new THREE.Mesh(new THREE.PlaneGeometry(16, 6), wallMat);
   rightWall.position.set(8, 3, 0);
   rightWall.rotation.y = -Math.PI / 2;
@@ -416,74 +407,65 @@
   deskGroup.add(deskTop);
 
   var legMat = new THREE.MeshStandardMaterial({ color: 0x5a4530, roughness: 0.8 });
-  var legPositions = [
-    [-1.2, 0.4, -0.5], [1.2, 0.4, -0.5],
-    [-1.2, 0.4,  0.5], [1.2, 0.4,  0.5]
-  ];
+  var legPositions = [[-1.2, 0.4, -0.5], [1.2, 0.4, -0.5], [-1.2, 0.4, 0.5], [1.2, 0.4, 0.5]];
   for (var li = 0; li < legPositions.length; li++) {
     var leg = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.8, 0.08), legMat);
     leg.position.set(legPositions[li][0], legPositions[li][1], legPositions[li][2]);
     deskGroup.add(leg);
   }
 
-  // ============ ПРЕДМЕТЫ НА СТОЛЕ (Job Simulator стиль) ============
-  var grabbables = [];  // предметы, которые можно брать
+  // ============ ПРЕДМЕТЫ ============
+  var grabbables = [];
 
-  // 1. Кружка
   var mugGroup = new THREE.Group();
   mugGroup.position.set(-0.8, 1.05, -1.5);
   var mugMat = new THREE.MeshStandardMaterial({ color: 0xff4444, roughness: 0.4 });
-  var mugBody = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.18, 16), mugMat);
-  mugGroup.add(mugBody);
-  var handleMat = new THREE.MeshStandardMaterial({ color: 0xff4444, roughness: 0.4 });
-  var handle = new THREE.Mesh(new THREE.TorusGeometry(0.06, 0.02, 8, 16), handleMat);
+  mugGroup.add(new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.18, 16), mugMat));
+  var handle = new THREE.Mesh(new THREE.TorusGeometry(0.06, 0.02, 8, 16), mugMat);
   handle.position.set(0.11, 0, 0);
   handle.rotation.y = Math.PI / 2;
   mugGroup.add(handle);
   gameScene.add(mugGroup);
-  grabbables.push({ mesh: mugGroup, name: 'кружку', grabbed: false });
+  grabbables.push({ mesh: mugGroup, name: 'кружку', home: new THREE.Vector3(-0.8, 1.05, -1.5) });
 
-  // 2. Степлер (коробочка)
   var staplerGroup = new THREE.Group();
   staplerGroup.position.set(0.5, 1.02, -1.5);
   var staplerMat = new THREE.MeshStandardMaterial({ color: 0x2222aa, roughness: 0.4, metalness: 0.6 });
-  var staplerBody = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.08, 0.1), staplerMat);
-  staplerGroup.add(staplerBody);
+  staplerGroup.add(new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.08, 0.1), staplerMat));
   var staplerTop = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.06, 0.08), staplerMat);
   staplerTop.position.set(0, 0.06, 0);
   staplerGroup.add(staplerTop);
   gameScene.add(staplerGroup);
-  grabbables.push({ mesh: staplerGroup, name: 'степлер', grabbed: false });
+  grabbables.push({ mesh: staplerGroup, name: 'степлер', home: new THREE.Vector3(0.5, 1.02, -1.5) });
 
-  // 3. Яблоко
-  var appleGeo = new THREE.SphereGeometry(0.1, 16, 16);
-  var appleMat = new THREE.MeshStandardMaterial({ color: 0xcc3322, roughness: 0.5 });
-  var apple = new THREE.Mesh(appleGeo, appleMat);
+  var apple = new THREE.Mesh(
+    new THREE.SphereGeometry(0.1, 16, 16),
+    new THREE.MeshStandardMaterial({ color: 0xcc3322, roughness: 0.5 })
+  );
   apple.position.set(-0.2, 1.1, -1.5);
-  var appleStem = new THREE.Mesh(
+  var stem = new THREE.Mesh(
     new THREE.CylinderGeometry(0.01, 0.01, 0.05, 6),
     new THREE.MeshStandardMaterial({ color: 0x4a3a20 })
   );
-  appleStem.position.set(0, 0.11, 0);
-  apple.add(appleStem);
+  stem.position.set(0, 0.11, 0);
+  apple.add(stem);
   gameScene.add(apple);
-  grabbables.push({ mesh: apple, name: 'яблоко', grabbed: false });
+  grabbables.push({ mesh: apple, name: 'яблоко', home: new THREE.Vector3(-0.2, 1.1, -1.5) });
 
-  // 4. Телефон
   var phoneGroup = new THREE.Group();
   phoneGroup.position.set(0.9, 1.02, -1.3);
   var phoneBodyMat = new THREE.MeshStandardMaterial({ color: 0x111118, roughness: 0.3, metalness: 0.5 });
-  var phoneBody = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.2, 0.015), phoneBodyMat);
-  phoneGroup.add(phoneBody);
-  var phoneScreenMat = new THREE.MeshBasicMaterial({ color: 0x44ffaa });
-  var phoneScreen = new THREE.Mesh(new THREE.PlaneGeometry(0.085, 0.17), phoneScreenMat);
+  phoneGroup.add(new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.2, 0.015), phoneBodyMat));
+  var phoneScreen = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.085, 0.17),
+    new THREE.MeshBasicMaterial({ color: 0x44ffaa })
+  );
   phoneScreen.position.z = 0.009;
   phoneGroup.add(phoneScreen);
   phoneGroup.rotation.z = 0.3;
   gameScene.add(phoneGroup);
-  grabbables.push({ mesh: phoneGroup, name: 'телефон', grabbed: false });
+  grabbables.push({ mesh: phoneGroup, name: 'телефон', home: new THREE.Vector3(0.9, 1.02, -1.3) });
 
-  // 5. Бумаги (стопка)
   var papersGroup = new THREE.Group();
   papersGroup.position.set(-0.6, 0.92, -1.2);
   for (var pp = 0; pp < 4; pp++) {
@@ -496,7 +478,7 @@
     papersGroup.add(paper);
   }
   gameScene.add(papersGroup);
-  grabbables.push({ mesh: papersGroup, name: 'бумаги', grabbed: false });
+  grabbables.push({ mesh: papersGroup, name: 'бумаги', home: new THREE.Vector3(-0.6, 0.92, -1.2) });
 
   // ============ МУСОРКА ============
   var trashGroup = new THREE.Group();
@@ -505,25 +487,17 @@
   var trashBody = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.2, 0.7, 16), trashMat);
   trashBody.position.y = 0.35;
   trashGroup.add(trashBody);
-  // Отверстие
-  var trashHoleMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
-  var trashHole = new THREE.Mesh(new THREE.CircleGeometry(0.2, 16), trashHoleMat);
-  trashHole.rotation.x = -Math.PI / 2;
-  trashHole.position.y = 0.71;
-  trashGroup.add(trashHole);
   gameScene.add(trashGroup);
 
-  // ============ РОБОТ-НАСТАВНИК ============
+  // ============ РОБОТ ============
   var robotGroup = new THREE.Group();
   robotGroup.position.set(0, 1.3, -3.2);
   gameScene.add(robotGroup);
 
-  // Голова
   var robotHeadMat = new THREE.MeshStandardMaterial({ color: 0xccccdd, roughness: 0.3, metalness: 0.6 });
   var robotHead = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.4, 0.4), robotHeadMat);
   robotGroup.add(robotHead);
 
-  // Глаза
   var eyeMat = new THREE.MeshBasicMaterial({ color: 0x44ffff });
   var eyeL = new THREE.Mesh(new THREE.CircleGeometry(0.06, 16), eyeMat);
   eyeL.position.set(-0.12, 0.05, 0.21);
@@ -532,14 +506,14 @@
   eyeR.position.set(0.12, 0.05, 0.21);
   robotGroup.add(eyeR);
 
-  // Тело
   var robotBody = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.9, 0.35), robotHeadMat);
   robotBody.position.y = -0.65;
   robotGroup.add(robotBody);
 
-  // Индикатор на груди
-  var chestMat = new THREE.MeshBasicMaterial({ color: 0xff44aa });
-  var chestLight = new THREE.Mesh(new THREE.CircleGeometry(0.08, 16), chestMat);
+  var chestLight = new THREE.Mesh(
+    new THREE.CircleGeometry(0.08, 16),
+    new THREE.MeshBasicMaterial({ color: 0xff44aa })
+  );
   chestLight.position.set(0, -0.55, 0.18);
   robotGroup.add(chestLight);
 
@@ -548,22 +522,24 @@
   taskPanelGroup.position.set(0, 2.4, -3.0);
   gameScene.add(taskPanelGroup);
 
-  var taskBgMat = new THREE.MeshBasicMaterial({
-    color: 0x0a1420, transparent: true, opacity: 0.9, side: THREE.DoubleSide
-  });
-  var taskBg = new THREE.Mesh(new THREE.PlaneGeometry(2.0, 0.55), taskBgMat);
+  var taskBg = new THREE.Mesh(
+    new THREE.PlaneGeometry(2.0, 0.55),
+    new THREE.MeshBasicMaterial({ color: 0x0a1420, transparent: true, opacity: 0.9, side: THREE.DoubleSide })
+  );
   taskPanelGroup.add(taskBg);
 
-  var taskBorderMat = new THREE.MeshBasicMaterial({
-    color: 0x44ffff, transparent: true, opacity: 0.7, side: THREE.DoubleSide
-  });
-  var taskBorder = new THREE.Mesh(new THREE.PlaneGeometry(2.04, 0.59), taskBorderMat);
+  var taskBorder = new THREE.Mesh(
+    new THREE.PlaneGeometry(2.04, 0.59),
+    new THREE.MeshBasicMaterial({ color: 0x44ffff, transparent: true, opacity: 0.7, side: THREE.DoubleSide })
+  );
   taskBorder.position.z = -0.001;
   taskPanelGroup.add(taskBorder);
 
   var taskTextCanvas = document.createElement('canvas');
   taskTextCanvas.width = 1024; taskTextCanvas.height = 256;
   var taskTextCtx = taskTextCanvas.getContext('2d');
+  var taskTexture = new THREE.CanvasTexture(taskTextCanvas);
+
   function updateTaskText(text) {
     taskTextCtx.clearRect(0, 0, 1024, 256);
     taskTextCtx.fillStyle = '#44ffff';
@@ -576,15 +552,14 @@
     taskTextCtx.fillText(text, 512, 160);
     taskTexture.needsUpdate = true;
   }
-  var taskTexture = new THREE.CanvasTexture(taskTextCanvas);
-  var taskTextMat = new THREE.MeshBasicMaterial({
-    map: taskTexture, transparent: true
-  });
-  var taskTextMesh = new THREE.Mesh(new THREE.PlaneGeometry(2.0, 0.55), taskTextMat);
+  var taskTextMesh = new THREE.Mesh(
+    new THREE.PlaneGeometry(2.0, 0.55),
+    new THREE.MeshBasicMaterial({ map: taskTexture, transparent: true })
+  );
   taskTextMesh.position.z = 0.005;
   taskPanelGroup.add(taskTextMesh);
 
-  // ============ ИГРОВАЯ ЛОГИКА ============
+  // ============ ЗАДАНИЯ ============
   var tasks = [
     { text: 'Возьми кружку', target: 'кружку', done: false },
     { text: 'Брось яблоко в мусорку', target: 'яблоко', done: false },
@@ -592,89 +567,153 @@
     { text: 'Возьми телефон', target: 'телефон', done: false }
   ];
   var currentTask = 0;
-  var tasksCompleted = 0;
 
   function nextTask() {
     currentTask++;
     if (currentTask >= tasks.length) {
       updateTaskText('ВСЁ СДЕЛАНО! 🎉');
-      setTimeout(function() {
-        showToast('Отличная работа! Возвращайся в меню', 4000);
-      }, 500);
+      setTimeout(function() { showToast('Отличная работа!', 4000); }, 500);
     } else {
       updateTaskText(tasks[currentTask].text);
     }
   }
   updateTaskText(tasks[0].text);
 
-  // ================ СВАЙП ================
+  // ============ СВАЙП ============
   var SWIPE_SENS = 0.005;
   var targetYaw = 0, targetPitch = 0;
   var currentYaw = 0, currentPitch = 0;
 
-  var isTouching = false;
+  var touchStartX = 0, touchStartY = 0;
   var lastTouchX = 0, lastTouchY = 0;
-  var touchId = null;
+  var touchMoved = false;
+  var touchStartTime = 0;
 
   touchLayer.addEventListener('touchstart', function(e) {
     if (e.touches.length === 0) return;
     var t = e.touches[0];
-    isTouching = true;
-    touchId = t.identifier;
+    touchStartX = t.clientX;
+    touchStartY = t.clientY;
     lastTouchX = t.clientX;
     lastTouchY = t.clientY;
+    touchMoved = false;
+    touchStartTime = performance.now();
     e.preventDefault();
   }, { passive: false });
 
   touchLayer.addEventListener('touchmove', function(e) {
-    if (!isTouching) return;
-    for (var i = 0; i < e.touches.length; i++) {
-      var t = e.touches[i];
-      if (t.identifier === touchId) {
-        var dx = t.clientX - lastTouchX;
-        var dy = t.clientY - lastTouchY;
-        lastTouchX = t.clientX;
-        lastTouchY = t.clientY;
-        targetYaw   -= dx * SWIPE_SENS;
-        targetPitch -= dy * SWIPE_SENS;
-        if (targetPitch >  Math.PI / 3) targetPitch =  Math.PI / 3;
-        if (targetPitch < -Math.PI / 3) targetPitch = -Math.PI / 3;
-        break;
-      }
+    if (e.touches.length === 0) return;
+    var t = e.touches[0];
+    var dx = t.clientX - lastTouchX;
+    var dy = t.clientY - lastTouchY;
+    lastTouchX = t.clientX;
+    lastTouchY = t.clientY;
+
+    var totalDx = t.clientX - touchStartX;
+    var totalDy = t.clientY - touchStartY;
+    if (Math.abs(totalDx) > 8 || Math.abs(totalDy) > 8) touchMoved = true;
+
+    if (touchMoved) {
+      targetYaw   -= dx * SWIPE_SENS;
+      targetPitch -= dy * SWIPE_SENS;
+      if (targetPitch >  Math.PI / 3) targetPitch =  Math.PI / 3;
+      if (targetPitch < -Math.PI / 3) targetPitch = -Math.PI / 3;
     }
     e.preventDefault();
   }, { passive: false });
 
-  function endTouch(e) {
-    isTouching = false;
-    touchId = null;
-    if (e) e.preventDefault();
-  }
-  touchLayer.addEventListener('touchend', endTouch, { passive: false });
-  touchLayer.addEventListener('touchcancel', endTouch, { passive: false });
+  touchLayer.addEventListener('touchend', function(e) {
+    var t = e.changedTouches[0];
+    var duration = performance.now() - touchStartTime;
+    var totalDx = t.clientX - touchStartX;
+    var totalDy = t.clientY - touchStartY;
+    var dist = Math.sqrt(totalDx * totalDx + totalDy * totalDy);
 
-  // Мышь для десктопа
-  var mouseDown = false;
+    // Это тап, если: коротко, мало движения
+    if (!touchMoved && dist < 15 && duration < 500) {
+      handleTap(t.clientX, t.clientY);
+    }
+    e.preventDefault();
+  }, { passive: false });
+
+  // Тап мышью для десктопа
+  var mouseDownX = 0, mouseDownY = 0, mouseDownTime = 0, mouseMoved = false;
   touchLayer.addEventListener('mousedown', function(e) {
-    mouseDown = true;
-    lastTouchX = e.clientX;
-    lastTouchY = e.clientY;
+    mouseDownX = e.clientX;
+    mouseDownY = e.clientY;
+    mouseDownTime = performance.now();
+    mouseMoved = false;
   });
   touchLayer.addEventListener('mousemove', function(e) {
-    if (!mouseDown) return;
+    if (e.buttons !== 1) return;
     var dx = e.clientX - lastTouchX;
     var dy = e.clientY - lastTouchY;
     lastTouchX = e.clientX;
     lastTouchY = e.clientY;
-    targetYaw   -= dx * SWIPE_SENS;
-    targetPitch -= dy * SWIPE_SENS;
-    if (targetPitch >  Math.PI / 3) targetPitch =  Math.PI / 3;
-    if (targetPitch < -Math.PI / 3) targetPitch = -Math.PI / 3;
+    if (Math.abs(e.clientX - mouseDownX) > 8 || Math.abs(e.clientY - mouseDownY) > 8) {
+      mouseMoved = true;
+      targetYaw   -= dx * SWIPE_SENS;
+      targetPitch -= dy * SWIPE_SENS;
+      if (targetPitch >  Math.PI / ];
+3) targetPitch =  Math.PI /        3;
+      if (target handPitch < -Math.PI / C3) targetPitch = -Math.PI / 3;
+    }
   });
-  touchLayer.addEventListener('mouseup', function() { mouseDown = false; });
-  touchLayer.addEventListener('mouseleave', function() { mouseDown = false; });
+  touchLayer.addEventListener('mouseup', function(e) {
+    var duration = performance.now() - mouseDownTime;
+    if (!mouseMoved && duration < 500) {
+      handleTap(e.clientX, e.clientY);
+    }
+  });
+  touchLayer.addEventListener('mousedown', function(e) {
+    lastTouchX = e.clientX;
+    lastTouchY = e.clientY;
+  });
 
-  // ================ FULLSCREEN ================
+  // ============ ОБРАБОТКА ТАПА ============
+  function handleTap(clientX, clientY) {
+    // NDC координаты
+    pointerNDC.x = (clientX / window.innerWidth) * 2 - 1;
+    pointerNDC.y = -(clientY / window.innerHeight) * 2 + 1;
+
+    raycaster.setFromCamera(pointerNDC, camera);
+
+    // Проверяем кнопки в активной сцене
+    var targets = [];
+    if (mode === 'menu') {
+      targets.push(playBtn);
+    } else if (mode === 'game') {
+      targets.push(backBtn);
+    }
+
+    var intersects = raycaster.intersectObjects(targets, false);
+    if (intersects.length > 0) {
+      var hit = intersects[0].object;
+      if (hit.userData.isButton) {
+        flashButton(hit);
+        if (hit.userData.action === 'play') {
+          setTimeout(enterGame, 150);
+        } else if (hit.userData.action === 'menu') {
+          setTimeout(exitToMenu, 150);
+        }
+      }
+    }
+  }
+
+  // Подсветка кнопки при тапе
+  function flashButton(btn) {
+    var mat = btn.material;
+    var origColor = mat.color.getHex();
+    var origOpacity = mat.opacity;
+    mat.color.setHex(0xffffff);
+    mat.opacity = 1;
+    setTimeout(function() {
+      mat.color.setHex(origColor);
+      mat.opacity = origOpacity;
+    }, 150);
+  }
+
+  // ============ FULLSCREEN ============
   var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
   var isStandalone = window.navigator.standalone === true ||
                      window.matchMedia('(display-mode: standalone)').matches;
@@ -683,7 +722,7 @@
     var el = document.documentElement;
     if (isIOS) {
       if (isStandalone) showToast('Уже в полноэкранном режиме ✓', 2000);
-      else showToast('iPhone: Поделиться → На экран «Домой» для полного экрана', 5000);
+      else showToast('iPhone: Поделиться → На экран «Домой»', 5000);
       return;
     }
     if (el.requestFullscreen) {
@@ -708,7 +747,7 @@
   fsBtn.addEventListener('click', handleFsPress);
   fsBtn.addEventListener('touchend', handleFsPress, { passive: false });
 
-  // ================ MEDIAPIPE ================
+  // ============ MEDIAPIPE ============
   var handsReady = false;
   var handData = [];
   var handsInstance = null;
@@ -774,7 +813,6 @@
     ];
     var loadedPerFile = [0, 0, 0];
     var sizePerFile = [50000, 5000000, 500000];
-
     function updateBar() {
       var total = 0, loaded = 0;
       for (var i = 0; i < urls.length; i++) {
@@ -785,7 +823,6 @@
       mpFill.style.width = pct + '%';
       mpPct.textContent = pct + '%';
     }
-
     urls.forEach(function(url, idx) {
       fetch(url).then(function(response) {
         var size = parseInt(response.headers.get('content-length')) || sizePerFile[idx];
@@ -817,14 +854,11 @@
     loop();
   }
 
-  // ================ РУКИ ================
+  // ============ РУКИ ============
   var CONNECTIONS = [
-    [0,1],[1,2],[2,3],[3,4],
-    [0,5],[5,6],[6,7],[7,8],
-    [5,9],[9,10],[10,11],[11,12],
-    [9,13],[13,14],[14,15],[15,16],
-    [13,17],[17,18],[18,19],[19,20],
-    [0,17],[0,5]
+    [0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],
+    [5,9],[9,10],[10,11],[11,12],[9,13],[13,14],[14,15],[15,16],
+    [13,17],[17,18],[18,19],[19,20],[0,17],[0,5]
   ];
   var HAND_COLORS = ['#00ffff', '#ff44aa'];
 
@@ -836,7 +870,6 @@
     for (var hi = 0; hi < handData.length; hi++) {
       var lm = handData[hi].landmarks;
       var color = HAND_COLORS[hi % HAND_COLORS.length];
-      // БЕЗ зеркалирования — MediaPipe уже отдал правильные координаты
       function px(l) { return l.x * W; }
       function py(l) { return l.y * H; }
 
@@ -859,8 +892,7 @@
       handCtx.shadowBlur = 8;
       handCtx.fillStyle = color;
       for (var ji = 0; ji < lm.length; ji++) {
-        var j = lm[ji];
-        handCtx.beginPath();
+        var j = lm[tx.beginPath();
         handCtx.arc(px(j), py(j), 4, 0, Math.PI * 2);
         handCtx.fill();
       }
@@ -881,9 +913,8 @@
     }
   }
 
-  // ================ РУКА В МИРЕ ================
-  // Преобразуем экранную позицию руки в луч → точка на дистанции HAND_DIST
-  var HAND_DIST = 1.8;  // на каком расстоянии от камеры "виртуальная рука"
+  // ============ РУКИ В МИРЕ ============
+  var HAND_DIST = 1.8;
   function getHandWorldPos(h) {
     var ndcX = h.x * 2 - 1;
     var ndcY = -(h.y * 2 - 1);
@@ -892,112 +923,91 @@
     return camera.position.clone().add(dir.multiplyScalar(HAND_DIST));
   }
 
-  // ================ РЕЖИМ ================
-  var mode = 'menu';  // 'menu' | 'game'
+  // ============ РЕЖИМ ============
+  var mode = 'menu';
   var running = false;
 
-  // ================ КНОПКА "ИГРАТЬ" ================
-  function updatePlayButton() {
-    if (mode !== 'menu') { playBtnMat.opacity = 0.85; return; }
-
-    // Проверяем, наведена ли рука на кнопку
-    var hovering = false;
-    if (handData.length > 0) {
-      var handPos = getHandWorldPos(handData[0]);
-      // Мировая позиция кнопки
-      var btnWorld = new THREE.Vector3();
-      playBtnGroup.getWorldPosition(btnWorld);
-      var dist = handPos.distanceTo(btnWorld);
-      if (dist < 0.45) hovering = true;
-    }
-
-    if (hovering) {
-      holdProgress += 0.016 / playBtnHoldTime;
-      if (holdProgress >= 1) {
-        holdProgress = 1;
-        // Сработала!
-        enterGame();
-        return;
-      }
-      playBtnMat.opacity = 0.6 + holdProgress * 0.4;
-      playBtnMat.color.setHex(0x88ffaa);
-    } else {
-      holdProgress = Math.max(0, holdProgress - 0.03);
-      playBtnMat.opacity = 0.85;
+  // ============ ПОДСВЕТКА КНОПОК ПРИ НАВЕДЕНИИ РУКИ ============
+  function updateButtonHover() {
+    if (!handData.length) {
       playBtnMat.color.setHex(0x44ff88);
+      playBtnMat.opacity = 0.9;
+      backBtnMat.color.setHex(0x662288);
+      backBtnMat.opacity = 0.9;
+      return;
     }
-    playLabelMat.opacity = 1;
+    var handPos = getHandWorldPos(handData[0]);
+
+    var playWorld = new THREE.Vector3();
+    playBtnGroup.getWorldPosition(playWorld);
+    var playDist = handPos.distanceTo(playWorld);
+    if (mode === 'menu' && playDist < 0.6) {
+      playBtnMat.color.setHex(0x88ffaa);
+      playBtnMat.opacity = 1;
+    } else {
+      playBtnMat.color.setHex(0x44ff88);
+      playBtnMat.opacity = 0.9;
+    }
+
+    var backWorld = new THREE.Vector3();
+    backBtnGroup.getWorldPosition(backWorld);
+    var backDist = handPos.distanceTo(backWorld);
+    if (mode === 'game' && backDist < 0.6) {
+      backBtnMat.color.setHex(0xaa44cc);
+      backBtnMat.opacity = 1;
+    } else {
+      backBtnMat.color.setHex(0x662288);
+      backBtnMat.opacity = 0.9;
+    }
   }
 
   function enterGame() {
     mode = 'game';
     menuScene.visible = false;
     gameScene.visible = true;
-    backBtnGroup.visible = true;
-    holdProgress = 0;
     showToast('🎮 Добро пожаловать на работу!', 2500);
-    playBtnMat.opacity = 0.85;
-    playBtnMat.color.setHex(0x44ff88);
   }
 
   function exitToMenu() {
     mode = 'menu';
     menuScene.visible = true;
     gameScene.visible = false;
-    backBtnGroup.visible = false;
-    holdProgress = 0;
-    // Сброс заданий
     currentTask = 0;
-    tasksCompleted = 0;
-    for (var i = 0; i < grabbables.length; i++) grabbables[i].grabbed = false;
+    for (var i = 0; i < grabbables.length; i++) {
+      grabbables[i].mesh.position.copy(grabbables[i].home);
+    }
     updateTaskText(tasks[0].text);
-    // Возврат предметов на исходные позиции (упрощённо — просто покажем заново)
+    for (var t = 0; t < tasks.length; t++) tasks[t].done = false;
     showToast('Возврат в меню', 1500);
   }
 
-  // ================ ХВАТАНИЕ ПРЕДМЕТОВ ================
-  // Упрощённо: если рука рядом с предметом — предмет "прилипает" к руке.
-  // Отпускание — рука далеко (> 0.5 м) — предмет падает.
-  var heldBy = new Map();  // mesh → handIndex
+  // ============ ХВАТАНИЕ ============
+  var heldBy = new Map();
 
   function updateGrab() {
     if (mode !== 'game') return;
-    if (!handData.length) {
-      // Нет рук — все предметы отпущены
-      heldBy.clear();
-      return;
-    }
+    if (!handData.length) { heldBy.clear(); return; }
 
-    // Мировые позиции рук
     var handWorlds = handData.map(function(h) { return getHandWorldPos(h); });
 
     for (var gi = 0; gi < grabbables.length; gi++) {
       var item = grabbables[gi];
       var mesh = item.mesh;
 
-      // Уже держится?
       var holderIdx = -1;
-      heldBy.forEach(function(v, k) {
-        if (k === mesh) holderIdx = v;
-      });
+      heldBy.forEach(function(v, k) { if (k === mesh) holderIdx = v; });
 
       if (holderIdx >= 0 && holderIdx < handWorlds.length) {
-        // Двигаем за рукой
         var target = handWorlds[holderIdx].clone();
         mesh.position.lerp(target, 0.3);
-        // Проверка отпускания — если рука далеко (> 0.6 м), отпускаем
-        if (mesh.position.distanceTo(target) > 0.6) {
-          heldBy.delete(mesh);
-        }
+        if (mesh.position.distanceTo(target) > 0.6) heldBy.delete(mesh);
         continue;
       }
 
-      // Не держится — проверяем, хочет ли рука схватить
       for (var hi = 0; hi < handWorlds.length; hi++) {
         var hw = handWorlds[hi];
         var d = mesh.position.distanceTo(hw);
-        if (d < 0.25) {
-          // Уже что-то другое в этой руке?
+        if (d < 0.28) {
           var busy = false;
           heldBy.forEach(function(v) { if (v === hi) busy = true; });
           if (busy) continue;
@@ -1007,66 +1017,54 @@
       }
     }
 
-    // Проверка выполнения заданий
-    if (currentTask < tasks.length) {
+    // Проверка заданий
+    if (currentTask < tasks.length && !tasks[currentTask].done) {
       var task = tasks[currentTask];
-      if (!task.done) {
-        if (task.target === 'яблоко') {
-          // Яблоко в мусорке?
-          var appleItem = null;
-          for (var ai = 0; ai < grabbables.length; ai++) {
-            if (grabbables[ai].name === 'яблоко') { appleItem = grabbables[ai]; break; }
+      if (task.target === 'яблоко') {
+        var appleItem = null;
+        for (var ai = 0; ai < grabbables.length; ai++) {
+          if (grabbables[ai].name === 'яблоко') { appleItem = grabbables[ai]; break; }
+        }
+        if (appleItem) {
+          var trashWorld = new THREE.Vector3();
+          trashGroup.getWorldPosition(trashWorld);
+          trashWorld.y += 0.4;
+          if (appleItem.mesh.position.distanceTo(trashWorld) < 0.5) {
+            task.done = true;
+            showToast('✅ ' + task.text, 1500);
+            setTimeout(nextTask, 800);
           }
-          if (appleItem) {
-            var trashWorld = new THREE.Vector3();
-            trashGroup.getWorldPosition(trashWorld);
-            trashWorld.y += 0.4;
-            if (appleItem.mesh.position.distanceTo(trashWorld) < 0.5) {
+        }
+      } else if (task.target === 'степлер') {
+        for (var si = 0; si < grabbables.length; si++) {
+          if (grabbables[si].name === 'степлер') {
+            if (grabbables[si].mesh.position.y < 0.3 && !heldBy.has(grabbables[si].mesh)) {
               task.done = true;
-              tasksCompleted++;
               showToast('✅ ' + task.text, 1500);
               setTimeout(nextTask, 800);
             }
+            break;
           }
-        } else if (task.target === 'степлер') {
-          // Степлер упал на пол?
-          for (var si = 0; si < grabbables.length; si++) {
-            if (grabbables[si].name === 'степлер') {
-              if (grabbables[si].mesh.position.y < 0.3 && !heldBy.has(grabbables[si].mesh)) {
-                task.done = true;
-                tasksCompleted++;
-                showToast('✅ ' + task.text, 1500);
-                setTimeout(nextTask, 800);
-              }
-              break;
-            }
-          }
-        } else {
-          // Просто "взять предмет" — если он в руке
-          for (var ti = 0; ti < grabbables.length; ti++) {
-            if (grabbables[ti].name === task.target && heldBy.has(grabbables[ti].mesh)) {
-              task.done = true;
-              tasksCompleted++;
-              showToast('✅ ' + task.text, 1500);
-              setTimeout(nextTask, 800);
-              break;
-            }
+        }
+      } else {
+        for (var ti = 0; ti < grabbables.length; ti++) {
+          if (grabbables[ti].name === task.target && heldBy.has(grabbables[ti].mesh)) {
+            task.done = true;
+            showToast('✅ ' + task.text, 1500);
+            setTimeout(nextTask, 800);
+            break;
           }
         }
       }
     }
   }
 
-  // ================ ФИЗИКА ГРАВИТАЦИИ ================
-  // Простая: если предмет не в руке и не на столе, падает
+  // ============ ГРАВИТАЦИЯ ============
   function updateGravity(dt) {
     if (mode !== 'game') return;
     for (var i = 0; i < grabbables.length; i++) {
       var mesh = grabbables[i].mesh;
       if (heldBy.has(mesh)) continue;
-      // Если выше пола — падает
-      var groundY = (mesh === mugGroup || mesh === staplerGroup || mesh === apple || mesh === phoneGroup || mesh === papersGroup) ? 1.05 : 0.15;
-      // Очень упрощённо: если y > 0.15 (пол), падает
       if (mesh.position.y > 0.15) {
         mesh.position.y -= dt * 2;
         if (mesh.position.y < 0.15) mesh.position.y = 0.15;
@@ -1074,7 +1072,7 @@
     }
   }
 
-  // ================ АНИМАЦИЯ ================
+  // ============ АНИМАЦИЯ ============
   var lastT = performance.now() / 1000;
   var handDrawAccum = 0;
   var HAND_DRAW_INTERVAL = 1/30;
@@ -1088,18 +1086,16 @@
     if (dt > 0.1) dt = 0.1;
     if (dt < 0) dt = 0;
 
-    // Свайп → поворот камеры
     currentYaw   += (targetYaw   - currentYaw)   * Math.min(1, dt * 12);
     currentPitch += (targetPitch - currentPitch) * Math.min(1, dt * 12);
     camera.rotation.y = currentYaw;
     camera.rotation.x = currentPitch;
     camera.rotation.z = 0;
 
-    // Панорама следует за камерой
     pano.position.copy(camera.position);
 
     if (running) {
-      updatePlayButton();
+      updateButtonHover();
       updateGrab();
       updateGravity(dt);
     }
@@ -1113,7 +1109,6 @@
     renderer.render(scene, camera);
   }
 
-  // ================ РАЗМЕРЫ ================
   function resize() {
     var w = window.innerWidth, h = window.innerHeight;
     camera.aspect = w / h;
@@ -1126,12 +1121,11 @@
   window.addEventListener('orientationchange', function() { setTimeout(resize, 200); });
   resize();
 
-  // ================ СТАРТ ================
+  // ============ СТАРТ ============
   startBtn.addEventListener('click', function() {
     startBtn.disabled = true;
     startBtn.textContent = 'Запуск...';
     statusEl.textContent = 'Запускаем камеру...';
-
     goFullscreen();
 
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -1142,11 +1136,7 @@
 
     navigator.mediaDevices.getUserMedia({
       audio: false,
-      video: {
-        facingMode: 'user',
-        width: { ideal: 640 },
-        height: { ideal: 480 }
-      }
+      video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }
     }).then(function(stream) {
       videoEl.srcObject = stream;
       return videoEl.play();
@@ -1160,7 +1150,7 @@
       mpFill.style.width = '0%';
       mpPct.textContent = '0%';
 
-      statusEl.textContent = 'Наведи руку на кнопку "ИГРАТЬ" и подержи';
+      statusEl.textContent = 'Тапни по кнопке "ИГРАТЬ"';
       initHands();
     }).catch(function(err) {
       console.error(err);
